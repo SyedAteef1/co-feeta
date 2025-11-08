@@ -3,6 +3,407 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
+// Teams Page Component
+function TeamsPage({ user }) {
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [resumeFile, setResumeFile] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [email, setEmail] = useState('');
+  const [selectedRoles, setSelectedRoles] = useState([]);
+
+  useEffect(() => {
+    loadTeamMembers();
+  }, []);
+
+  const loadTeamMembers = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const response = await fetch('https://localhost:5000/api/teams/members', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTeamMembers(data.members || []);
+      }
+    } catch (error) {
+      console.error('Error loading team members:', error);
+    }
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.name.match(/\.(pdf|docx|doc)$/i)) {
+      alert('Please upload a PDF or DOCX file');
+      return;
+    }
+
+    setResumeFile(file);
+    setIsAnalyzing(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('resume', file);
+
+      const response = await fetch('https://localhost:5000/api/teams/analyze_resume', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAnalysis(data.analysis);
+        setEmail(data.analysis.email || '');
+        setSelectedRoles(data.analysis.selected_roles || []);
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Failed to analyze resume'}`);
+      }
+    } catch (error) {
+      console.error('Error analyzing resume:', error);
+      alert('Failed to analyze resume');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleSaveMember = async () => {
+    if (!resumeFile || !analysis) {
+      alert('Please upload and analyze a resume first');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('resume', resumeFile);
+      formData.append('email', email);
+      formData.append('selected_roles', JSON.stringify(selectedRoles));
+
+      const response = await fetch('https://localhost:5000/api/teams/members', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+
+      if (response.ok) {
+        alert('✅ Team member added successfully!');
+        setShowCreateModal(false);
+        setResumeFile(null);
+        setAnalysis(null);
+        setEmail('');
+        setSelectedRoles([]);
+        loadTeamMembers();
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Failed to save member'}`);
+      }
+    } catch (error) {
+      console.error('Error saving member:', error);
+      alert('Failed to save team member');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteMember = async (memberId) => {
+    if (!confirm('Are you sure you want to delete this team member?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`https://localhost:5000/api/teams/members/${memberId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        loadTeamMembers();
+      } else {
+        alert('Failed to delete member');
+      }
+    } catch (error) {
+      console.error('Error deleting member:', error);
+      alert('Failed to delete team member');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold mb-2">Team Members</h2>
+          <p className="text-gray-400 text-sm">Manage your team members for task assignment</p>
+        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center gap-2 px-5 py-2.5 text-sm bg-white text-black hover:bg-gray-100 rounded-lg transition-all font-medium shadow-sm"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <span>Create New Member</span>
+        </button>
+      </div>
+
+      {/* Team Members Grid */}
+      {teamMembers.length === 0 ? (
+        <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-12 text-center">
+          <p className="text-gray-400 mb-4">No team members yet</p>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-all"
+          >
+            Add Your First Team Member
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {teamMembers.map((member) => (
+            <div key={member._id} className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold mb-1">{member.name || 'Unknown'}</h3>
+                  <p className="text-sm text-gray-400">{member.role || 'Developer'}</p>
+                </div>
+                <button
+                  onClick={() => handleDeleteMember(member._id)}
+                  className="p-2 hover:bg-[#1a1a1a] rounded-lg text-gray-400 hover:text-red-400 transition-all"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
+              
+              {member.email && (
+                <p className="text-sm text-gray-400 mb-3">{member.email}</p>
+              )}
+
+              {member.skills && member.skills.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-xs text-gray-500 mb-2">Skills:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {member.skills.slice(0, 5).map((skill, i) => (
+                      <span key={i} className="px-2 py-1 bg-[#1a1a1a] text-xs rounded-lg text-gray-300">
+                        {skill}
+                      </span>
+                    ))}
+                    {member.skills.length > 5 && (
+                      <span className="px-2 py-1 bg-[#1a1a1a] text-xs rounded-lg text-gray-500">
+                        +{member.skills.length - 5}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-4 text-xs text-gray-400 mt-4 pt-4 border-t border-[#1f1f1f]">
+                <span>⏰ {member.experience_years || 0} years</span>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-1 rounded-lg ${
+                    member.status === 'idle' ? 'bg-green-500/20 text-green-400' :
+                    member.status === 'busy' ? 'bg-yellow-500/20 text-yellow-400' :
+                    'bg-red-500/20 text-red-400'
+                  }`}>
+                    {member.status || 'idle'}
+                  </span>
+                  {member.idle_percentage !== undefined && (
+                    <span className={`px-2 py-1 rounded-lg font-medium ${
+                      member.idle_percentage >= 50 ? 'bg-green-500/20 text-green-400' :
+                      member.idle_percentage >= 25 ? 'bg-yellow-500/20 text-yellow-400' :
+                      'bg-red-500/20 text-red-400'
+                    }`}>
+                      {member.idle_percentage.toFixed(1)}% idle
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Create Member Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-[#0f0f0f]/80 backdrop-blur-2xl border border-[#2a2a2a]/50 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold">Create New Team Member</h3>
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setResumeFile(null);
+                  setAnalysis(null);
+                  setEmail('');
+                  setSelectedRoles([]);
+                }}
+                className="p-2 hover:bg-[#1a1a1a] rounded-lg text-gray-400 hover:text-white transition-all"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+
+            {/* Resume Upload */}
+            {!analysis ? (
+              <div className="space-y-4">
+                <div className="border-2 border-dashed border-[#2a2a2a] rounded-xl p-8 text-center hover:border-[#3a3a3a] transition-all">
+                  <input
+                    type="file"
+                    id="resume-upload"
+                    accept=".pdf,.docx,.doc"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <label htmlFor="resume-upload" className="cursor-pointer">
+                    <svg className="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    <p className="text-sm font-medium mb-1">Upload Resume</p>
+                    <p className="text-xs text-gray-400">PDF or DOCX format</p>
+                  </label>
+                </div>
+                {isAnalyzing && (
+                  <div className="text-center py-4">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                    <p className="text-sm text-gray-400 mt-2">Analyzing resume with AI...</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+                  <p className="text-sm text-green-400 mb-2">✅ Resume analyzed successfully!</p>
+                </div>
+
+                {/* Analysis Results */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Name</label>
+                    <input
+                      type="text"
+                      value={analysis.name || ''}
+                      readOnly
+                      className="w-full px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Email</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white"
+                      placeholder="email@example.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Role</label>
+                    <input
+                      type="text"
+                      value={analysis.role || ''}
+                      readOnly
+                      className="w-full px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Skills</label>
+                    <div className="flex flex-wrap gap-2 p-3 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg">
+                      {analysis.skills?.map((skill, i) => (
+                        <span key={i} className="px-2 py-1 bg-[#0a0a0a] text-xs rounded-lg text-gray-300">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Experience</label>
+                    <input
+                      type="text"
+                      value={`${analysis.experience_years || 0} years`}
+                      readOnly
+                      className="w-full px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white"
+                    />
+                  </div>
+
+                  {analysis.description && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Description</label>
+                      <textarea
+                        value={analysis.description}
+                        readOnly
+                        rows="4"
+                        className="w-full px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white text-sm"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Suggested Roles</label>
+                    <div className="flex flex-wrap gap-2">
+                      {analysis.selected_roles?.map((role, i) => (
+                        <label key={i} className="flex items-center gap-2 px-3 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg cursor-pointer hover:bg-[#222222] transition-all">
+                          <input
+                            type="checkbox"
+                            checked={selectedRoles.includes(role)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedRoles([...selectedRoles, role]);
+                              } else {
+                                setSelectedRoles(selectedRoles.filter(r => r !== role));
+                              }
+                            }}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-gray-300">{role}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t border-[#2a2a2a]">
+                  <button
+                    onClick={handleSaveMember}
+                    disabled={isSaving}
+                    className="flex-1 px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-all font-medium disabled:opacity-50"
+                  >
+                    {isSaving ? 'Saving...' : 'Save Team Member'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setAnalysis(null);
+                      setResumeFile(null);
+                    }}
+                    className="px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg hover:bg-[#222222] transition-all"
+                  >
+                    Upload New Resume
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DemoDash() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -20,6 +421,13 @@ export default function DemoDash() {
   const [repos, setRepos] = useState([]);
   const [showRepoModal, setShowRepoModal] = useState(false);
   const [selectedRepos, setSelectedRepos] = useState([]);
+  
+  // Task approval state
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [pendingTasks, setPendingTasks] = useState([]);
+  const [selectedChannel, setSelectedChannel] = useState('');
+  const [slackChannels, setSlackChannels] = useState([]);
+  const [taskAssignments, setTaskAssignments] = useState({}); // {taskId: {assigned_member_name, assigned_member_email}}
   
   // Chat state
   const [messages, setMessages] = useState([]);
@@ -198,6 +606,86 @@ export default function DemoDash() {
         return [...prev, repoWithType];
       }
     });
+  };
+
+  const showPendingTasksApproval = async (projectId) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      // Fetch pending tasks with suggestions
+      const tasksRes = await fetch(`https://localhost:5000/api/projects/${projectId}/tasks/pending-approval`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (tasksRes.ok) {
+        const tasksData = await tasksRes.json();
+        setPendingTasks(tasksData.tasks || []);
+        
+        // Fetch Slack channels
+        const channelsRes = await fetch('https://localhost:5000/api/slack/channels', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (channelsRes.ok) {
+          const channelsData = await channelsRes.json();
+          setSlackChannels(channelsData.channels || []);
+        }
+        
+        setShowApprovalModal(true);
+      } else {
+        alert('Failed to load pending tasks');
+      }
+    } catch (error) {
+      console.error('Error loading pending tasks:', error);
+      alert('Error loading pending tasks');
+    }
+  };
+
+  const handleApproveTasks = async () => {
+    if (!selectedProject) return;
+    
+    const taskIds = pendingTasks.map(t => t.id).filter(id => id);
+    if (taskIds.length === 0) {
+      alert('No tasks to approve');
+      return;
+    }
+
+    if (!selectedChannel && slackConnected) {
+      alert('Please select a Slack channel');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch(`https://localhost:5000/api/projects/${selectedProject._id || selectedProject.id}/tasks/approve`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          task_ids: taskIds,
+          channel_id: selectedChannel,
+          task_assignments: taskAssignments
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert(`✅ ${data.approved_count} tasks approved and sent to Slack!`);
+        setShowApprovalModal(false);
+        setPendingTasks([]);
+        setTaskAssignments({});
+        setSelectedChannel('');
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Failed to approve tasks'}`);
+      }
+    } catch (error) {
+      console.error('Error approving tasks:', error);
+      alert('Failed to approve tasks');
+    }
   };
 
   const detectRepoType = (repo) => {
@@ -983,8 +1471,8 @@ export default function DemoDash() {
           </button>
 
           <button 
-            onClick={() => router.push('/teams')}
-            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-all`}
+            onClick={() => handleMenuItemClick('teams')}
+            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 text-sm ${activePage === 'teams' ? 'text-white bg-[#1a1a1a]' : 'text-gray-400 hover:text-white'} hover:bg-[#1a1a1a] rounded-lg transition-all`}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0">
               <circle cx="8" cy="6" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
@@ -1726,6 +2214,14 @@ export default function DemoDash() {
           <p className="text-xs text-gray-400 mt-1">{msg.plan.main_task}</p>
         )}
       </div>
+      {selectedProject && (
+        <button
+          onClick={() => showPendingTasksApproval(selectedProject._id || selectedProject.id)}
+          className="px-3 py-1.5 text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/30 transition-all"
+        >
+          Review & Approve Tasks
+        </button>
+      )}
       {msg.plan.subtasks && msg.plan.subtasks.length > 0 && (
         <div className="text-xs text-gray-400 space-y-1">
           {(() => {
@@ -1872,6 +2368,9 @@ export default function DemoDash() {
                 </>
               )}
             </>
+          ) : activePage === 'teams' ? (
+            /* Teams Page */
+            <TeamsPage user={user} />
           ) : (
             /* Other Pages */
             <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
@@ -1884,6 +2383,163 @@ export default function DemoDash() {
         </div>
       </div>
       </div>
+
+      {/* Task Approval Modal */}
+      {showApprovalModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-[#0f0f0f]/80 backdrop-blur-2xl border border-[#2a2a2a]/50 rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-xl font-semibold">Review & Approve Tasks</h3>
+                <p className="text-sm text-gray-400 mt-1">{pendingTasks.length} tasks pending approval</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowApprovalModal(false);
+                  setPendingTasks([]);
+                  setTaskAssignments({});
+                }}
+                className="p-2 hover:bg-[#1a1a1a] rounded-lg text-gray-400 hover:text-white transition-all"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+
+            {/* Slack Channel Selection */}
+            {slackConnected && slackChannels.length > 0 && (
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-2">Select Slack Channel</label>
+                <select
+                  value={selectedChannel}
+                  onChange={(e) => setSelectedChannel(e.target.value)}
+                  className="w-full px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white"
+                >
+                  <option value="">Select a channel...</option>
+                  {slackChannels.map((channel) => (
+                    <option key={channel.id} value={channel.id}>
+                      #{channel.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Tasks List */}
+            <div className="space-y-4 mb-6">
+              {pendingTasks.map((task) => (
+                <div key={task.id} className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-sm mb-1">{task.title}</h4>
+                      <p className="text-xs text-gray-400 mb-2">{task.description}</p>
+                      <div className="flex items-center gap-3 text-xs text-gray-500">
+                        {task.deadline && (
+                          <span>📅 {new Date(task.deadline).toLocaleDateString()}</span>
+                        )}
+                        {task.timeline && <span>⏱️ {task.timeline}</span>}
+                        {task.estimated_hours && <span>⏰ {task.estimated_hours}h</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Suggested Members */}
+                  {task.suggested_members && task.suggested_members.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-[#2a2a2a]">
+                      <p className="text-xs text-gray-500 mb-2">💡 Suggested Team Members:</p>
+                      <div className="space-y-2">
+                        {task.suggested_members.map((member, idx) => (
+                          <label
+                            key={idx}
+                            className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all ${
+                              taskAssignments[task.id]?.assigned_member_name === member.name
+                                ? 'bg-blue-500/20 border border-blue-500/50'
+                                : 'bg-[#0a0a0a] border border-[#2a2a2a] hover:border-[#3a3a3a]'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`task-${task.id}`}
+                              checked={taskAssignments[task.id]?.assigned_member_name === member.name}
+                              onChange={() => {
+                                setTaskAssignments({
+                                  ...taskAssignments,
+                                  [task.id]: {
+                                    assigned_member_name: member.name,
+                                    assigned_member_email: member.email
+                                  }
+                                });
+                              }}
+                              className="rounded"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-300">{member.name}</span>
+                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                  member.status === 'idle' ? 'bg-green-500/20 text-green-400' :
+                                  member.status === 'busy' ? 'bg-yellow-500/20 text-yellow-400' :
+                                  'bg-gray-500/20 text-gray-400'
+                                }`}>
+                                  {member.status}
+                                </span>
+                                {member.idle_percentage !== undefined && (
+                                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                    member.idle_percentage >= 50 ? 'bg-green-500/20 text-green-400' :
+                                    member.idle_percentage >= 25 ? 'bg-yellow-500/20 text-yellow-400' :
+                                    'bg-red-500/20 text-red-400'
+                                  }`}>
+                                    {member.idle_percentage.toFixed(1)}% idle
+                                  </span>
+                                )}
+                                <span className="text-xs text-blue-400">Score: {member.score}</span>
+                              </div>
+                              <div className="text-xs text-gray-400 mt-1">
+                                {member.role && <span>{member.role} • </span>}
+                                {member.match_reasons?.join(' • ')}
+                              </div>
+                              {member.skills && member.skills.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {member.skills.slice(0, 3).map((skill, i) => (
+                                    <span key={i} className="text-xs px-1.5 py-0.5 bg-[#0a0a0a] rounded text-gray-500">
+                                      {skill}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Approve Button */}
+            <div className="flex gap-3 pt-4 border-t border-[#2a2a2a]">
+              <button
+                onClick={handleApproveTasks}
+                className="flex-1 px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-all font-medium"
+              >
+                Approve & Send to Slack
+              </button>
+              <button
+                onClick={() => {
+                  setShowApprovalModal(false);
+                  setPendingTasks([]);
+                  setTaskAssignments({});
+                }}
+                className="px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg hover:bg-[#222222] transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Repository Selection Modal */}
       {showRepoModal && (
