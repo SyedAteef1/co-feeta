@@ -1,11 +1,14 @@
 from flask import Blueprint, request, jsonify
 import logging
 import uuid
+import jwt
+import os
 from app.services.ai_service import analyze_task_with_llm, generate_implementation_plan, get_conversation_history
 from app.services.github_service import get_user_repos, analyze_repo_structure
 from app.database.mongodb import get_user_team_members
-from flask_jwt_extended import jwt_required, get_jwt_identity
 import requests as req
+
+JWT_SECRET = os.getenv('FLASK_SECRET', 'change_this_secret')
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(name)s] - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -71,7 +74,6 @@ def analyze():
         return jsonify({"error": str(e)}), 500
 
 @task_bp.route("/generate_plan", methods=["POST", "OPTIONS"])
-@jwt_required()
 def generate_plan():
     """Generate implementation plan with or without answers"""
     if request.method == "OPTIONS":
@@ -81,7 +83,17 @@ def generate_plan():
     logger.info("📥 ENDPOINT: /api/generate_plan")
     logger.info("="*80)
     
+    # Validate JWT token
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"error": "No authorization provided"}), 401
+    
     try:
+        # Get user_id from JWT token (using PyJWT like other endpoints)
+        token = auth_header.replace('Bearer ', '')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload['user_id']
+        
         body = request.get_json()
         logger.info(f"📦 Request Body: {body}")
         
@@ -90,7 +102,6 @@ def generate_plan():
         session_id = body.get('session_id')
         
         # Get team members from database
-        user_id = get_jwt_identity()
         team_members = get_user_team_members(user_id)
         
         # Allow override from request body if provided
@@ -114,6 +125,10 @@ def generate_plan():
         
         return jsonify(result)
         
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
     except Exception as e:
         logger.error(f"❌ Error in generate_plan endpoint: {str(e)}")
         logger.exception("Full traceback:")

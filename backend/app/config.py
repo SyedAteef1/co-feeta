@@ -39,6 +39,14 @@ class Config:
     SESSION_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_DOMAIN = 'localhost'
     
+    # JWT Configuration (for flask-jwt-extended)
+    JWT_SECRET_KEY = os.getenv("FLASK_SECRET", "change_this_in_production")
+    JWT_TOKEN_LOCATION = ["headers"]
+    JWT_HEADER_NAME = "Authorization"
+    JWT_HEADER_TYPE = "Bearer"
+    JWT_ACCESS_TOKEN_EXPIRES = False  # Tokens don't expire (or set to timedelta for expiration)
+    JWT_IDENTITY_CLAIM = "user_id"  # Use 'user_id' instead of default 'sub' claim
+    
     @staticmethod
     def validate():
         """Validate required configuration"""

@@ -355,9 +355,13 @@ export default function DashPage() {
       };
 
       if (data.status === "clear" || data.status === "needs_context") {
+        const token = localStorage.getItem('token');
         const planRes = await fetch("https://localhost:5000/api/generate_plan", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
           body: JSON.stringify({
             task: input,
             session_id: data.session_id,
@@ -1102,20 +1106,71 @@ export default function DashPage() {
                                 
                                 {msg.plan && (
                                   <div className="bg-[#343541] rounded-xl p-6 mt-4">
-                                    <h3 className="text-lg font-semibold mb-2">{msg.plan.main_task}</h3>
-                                    <p className="text-sm text-gray-400 mb-4">{msg.plan.goal}</p>
+                                    <div className="flex justify-between items-start mb-4">
+                                      <div>
+                                        <h3 className="text-lg font-semibold mb-2">{msg.plan.main_task}</h3>
+                                        <p className="text-sm text-gray-400">{msg.plan.goal}</p>
+                                      </div>
+                                      {msg.plan.subtasks && msg.plan.subtasks.length > 0 && (
+                                        <div className="text-xs text-right space-y-1">
+                                          {(() => {
+                                            const totalHours = msg.plan.subtasks.reduce((sum, t) => {
+                                              const hours = parseFloat(t.estimated_hours) || 0;
+                                              return sum + hours;
+                                            }, 0);
+                                            const totalTimeline = totalHours < 8 ? `${Math.round(totalHours)}h` : 
+                                                                 totalHours < 40 ? `${Math.round(totalHours/8)}d` : 
+                                                                 `${Math.round(totalHours/40)}w`;
+                                            
+                                            const deadlines = msg.plan.subtasks
+                                              .map(t => t.deadline)
+                                              .filter(d => d)
+                                              .map(d => new Date(d))
+                                              .filter(d => !isNaN(d.getTime()));
+                                            
+                                            const earliestDeadline = deadlines.length > 0 ? 
+                                              new Date(Math.min(...deadlines.map(d => d.getTime()))) : null;
+                                            const latestDeadline = deadlines.length > 0 ? 
+                                              new Date(Math.max(...deadlines.map(d => d.getTime()))) : null;
+                                            
+                                            return (
+                                              <>
+                                                <div className="text-blue-400 font-semibold">⏱️ Total: {totalTimeline}</div>
+                                                {totalHours > 0 && <div className="text-yellow-400">⏰ {Math.round(totalHours)}h</div>}
+                                                {earliestDeadline && (
+                                                  <div className="text-green-400">📅 Start: {earliestDeadline.toLocaleDateString()}</div>
+                                                )}
+                                                {latestDeadline && (
+                                                  <div className="text-orange-400">📅 End: {latestDeadline.toLocaleDateString()}</div>
+                                                )}
+                                              </>
+                                            );
+                                          })()}
+                                        </div>
+                                      )}
+                                    </div>
                                     <div className="space-y-3">
                                       {msg.plan.subtasks?.map((subtask, si) => (
                                         <div key={si} className="bg-[#40414F] rounded-lg p-4">
                                           <div className="flex justify-between items-start mb-2">
                                             <div className="font-semibold text-sm">{si + 1}. {subtask.title}</div>
-                                            <span className="text-xs text-green-400">{subtask.deadline}</span>
+                                            <div className="flex items-center gap-2 text-xs">
+                                              {subtask.timeline && (
+                                                <span className="text-blue-400">⏱️ {subtask.timeline}</span>
+                                              )}
+                                              {subtask.deadline && (
+                                                <span className="text-green-400">📅 {new Date(subtask.deadline).toLocaleDateString()}</span>
+                                              )}
+                                            </div>
                                           </div>
                                           <p className="text-xs text-gray-400 mb-2">{subtask.description}</p>
-                                          <div className="flex gap-3 text-xs text-gray-500">
+                                          <div className="flex gap-3 text-xs text-gray-500 flex-wrap">
+                                            {subtask.estimated_hours && (
+                                              <span className="text-yellow-400">⏰ {subtask.estimated_hours}h</span>
+                                            )}
                                             <span>👤 {subtask.assigned_to}</span>
-                                            <span>📦 {subtask.output}</span>
-                                            <span>✅ {subtask.clarity_score}%</span>
+                                            {subtask.output && <span>📦 {subtask.output}</span>}
+                                            {subtask.clarity_score && <span>✅ {subtask.clarity_score}%</span>}
                                           </div>
                                         </div>
                                       ))}

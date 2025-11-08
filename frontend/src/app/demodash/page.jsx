@@ -421,9 +421,13 @@ export default function DemoDash() {
       };
 
       if (data.status === "clear" || data.status === "needs_context") {
+        const token = localStorage.getItem('token');
         const planRes = await fetch("https://localhost:5000/api/generate_plan", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
           body: JSON.stringify({
             task: currentInput,
             session_id: data.session_id,
@@ -537,9 +541,13 @@ export default function DemoDash() {
         answers: formattedAnswers
       };
 
+      const token = localStorage.getItem('token');
       const planRes = await fetch("https://localhost:5000/api/generate_plan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(requestBody),
       });
 
@@ -1711,18 +1719,77 @@ export default function DemoDash() {
                             {/* Show Plan if available */}
                            {msg.plan && (
   <div className="mt-4 space-y-2">
-    <p className="font-semibold text-sm text-green-400">✓ Plan Created</p>
+    <div className="flex items-center justify-between mb-2">
+      <div>
+        <p className="font-semibold text-sm text-green-400">✓ Plan Created</p>
+        {msg.plan.main_task && (
+          <p className="text-xs text-gray-400 mt-1">{msg.plan.main_task}</p>
+        )}
+      </div>
+      {msg.plan.subtasks && msg.plan.subtasks.length > 0 && (
+        <div className="text-xs text-gray-400 space-y-1">
+          {(() => {
+            const totalHours = msg.plan.subtasks.reduce((sum, t) => {
+              const hours = parseFloat(t.estimated_hours) || 0;
+              return sum + hours;
+            }, 0);
+            const totalTimeline = totalHours < 8 ? `${Math.round(totalHours)}h` : 
+                                 totalHours < 40 ? `${Math.round(totalHours/8)}d` : 
+                                 `${Math.round(totalHours/40)}w`;
+            
+            // Find earliest and latest deadlines
+            const deadlines = msg.plan.subtasks
+              .map(t => t.deadline)
+              .filter(d => d)
+              .map(d => new Date(d))
+              .filter(d => !isNaN(d.getTime()));
+            
+            const earliestDeadline = deadlines.length > 0 ? 
+              new Date(Math.min(...deadlines.map(d => d.getTime()))) : null;
+            const latestDeadline = deadlines.length > 0 ? 
+              new Date(Math.max(...deadlines.map(d => d.getTime()))) : null;
+            
+            return (
+              <div className="text-right">
+                <div className="text-blue-400">⏱️ Total Time: {totalTimeline}</div>
+                {totalHours > 0 && <div className="text-yellow-400">⏰ {Math.round(totalHours)} hours</div>}
+                {earliestDeadline && (
+                  <div className="text-green-400">📅 Start: {earliestDeadline.toLocaleDateString()}</div>
+                )}
+                {latestDeadline && (
+                  <div className="text-orange-400">📅 End: {latestDeadline.toLocaleDateString()}</div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+    </div>
     <div className="space-y-1">
       {msg.plan.subtasks?.map((task, i) => (
         <div
           key={i}
-          className="text-sm text-gray-400 pl-4 border-l-2 border-gray-700"
+          className="text-sm text-gray-400 pl-4 border-l-2 border-gray-700 bg-[#1a1a1a] p-3 rounded-lg"
         >
-          <div className="font-medium text-gray-300">
-            {i + 1}. {task.title || task.task}
+          <div className="font-medium text-gray-300 flex items-center justify-between">
+            <span>{i + 1}. {task.title || task.task}</span>
+            <div className="flex items-center gap-2 text-xs">
+              {task.timeline && (
+                <span className="text-blue-400">⏱️ {task.timeline}</span>
+              )}
+              {task.deadline && (
+                <span className="text-orange-400">📅 {new Date(task.deadline).toLocaleDateString()}</span>
+              )}
+            </div>
           </div>
           {task.role && (
             <div className="text-xs text-blue-400 mt-1">👤 {task.role}</div>
+          )}
+          {task.assigned_to && task.assigned_to !== 'Unassigned' && (
+            <div className="text-xs text-purple-400 mt-1">👥 Assigned to: {task.assigned_to}</div>
+          )}
+          {task.estimated_hours && (
+            <div className="text-xs text-yellow-400 mt-1">⏰ Estimated: {task.estimated_hours} hours</div>
           )}
           <div className="text-xs mt-1">{task.description}</div>
         </div>

@@ -32,19 +32,41 @@ def init_db():
     
     try:
         logger.info("🔌 Connecting to MongoDB...")
-        # Add timeout and retry settings
-        client = MongoClient(
-            MONGO_URI,
-            serverSelectionTimeoutMS=5000,  # 5 second timeout
-            connectTimeoutMS=10000,  # 10 second connection timeout
-            socketTimeoutMS=10000,  # 10 second socket timeout
-            maxPoolSize=10,
-            retryWrites=True
-        )
+        logger.info(f"📍 MongoDB URI: {MONGO_URI[:50]}..." if len(MONGO_URI) > 50 else f"📍 MongoDB URI: {MONGO_URI}")
         
-        # Test the connection
-        client.admin.command('ping')
-        logger.info("✅ MongoDB connection successful!")
+        # Enhanced connection settings with DNS timeout handling
+        connection_options = {
+            "serverSelectionTimeoutMS": 10000,  # 10 second timeout
+            "connectTimeoutMS": 15000,  # 15 second connection timeout
+            "socketTimeoutMS": 20000,  # 20 second socket timeout
+            "maxPoolSize": 10,
+            "retryWrites": True,
+            "retryReads": True,
+        }
+        
+        # For SRV connections (mongodb+srv://), add DNS timeout
+        if MONGO_URI.startswith("mongodb+srv://"):
+            # SRV connections need DNS resolution, add longer timeout
+            connection_options["serverSelectionTimeoutMS"] = 20000
+            connection_options["connectTimeoutMS"] = 20000
+            logger.info("🔍 Detected SRV connection, using extended timeouts for DNS resolution")
+        
+        client = MongoClient(MONGO_URI, **connection_options)
+        
+        # Test the connection with retry
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                client.admin.command('ping')
+                logger.info("✅ MongoDB connection successful!")
+                break
+            except Exception as ping_error:
+                if attempt < max_retries - 1:
+                    logger.warning(f"⚠️ Connection attempt {attempt + 1} failed, retrying... ({str(ping_error)[:100]})")
+                    import time
+                    time.sleep(2)  # Wait 2 seconds before retry
+                else:
+                    raise ping_error
         
         db = client['feeta']
         
@@ -56,20 +78,36 @@ def init_db():
         conversation_history_collection = db['conversation_history']
         tasks_collection = db['tasks']
         
-        # Create indexes for performance
-        users_collection.create_index([("email", ASCENDING)], unique=True)
-        projects_collection.create_index([("user_id", ASCENDING), ("created_at", DESCENDING)])
-        messages_collection.create_index([("project_id", ASCENDING), ("created_at", ASCENDING)])
-        repo_context_collection.create_index([("repo_full_name", ASCENDING)], unique=True)
-        conversation_history_collection.create_index([("session_id", ASCENDING)], unique=True)
-        tasks_collection.create_index([("project_id", ASCENDING), ("created_at", DESCENDING)])
-        tasks_collection.create_index([("status", ASCENDING)])
+        # Create indexes for performance (with error handling)
+        try:
+            users_collection.create_index([("email", ASCENDING)], unique=True)
+            projects_collection.create_index([("user_id", ASCENDING), ("created_at", DESCENDING)])
+            messages_collection.create_index([("project_id", ASCENDING), ("created_at", ASCENDING)])
+            repo_context_collection.create_index([("repo_full_name", ASCENDING)], unique=True)
+            conversation_history_collection.create_index([("session_id", ASCENDING)], unique=True)
+            tasks_collection.create_index([("project_id", ASCENDING), ("created_at", DESCENDING)])
+            tasks_collection.create_index([("status", ASCENDING)])
+            logger.info("✅ MongoDB collections initialized with indexes")
+        except Exception as index_error:
+            logger.warning(f"⚠️ Some indexes may already exist: {str(index_error)[:100]}")
         
-        logger.info("✅ MongoDB collections initialized with indexes")
         return True
     except Exception as e:
-        logger.error(f"❌ Failed to initialize MongoDB: {str(e)}")
-        raise
+        error_msg = str(e)
+        logger.error(f"❌ Failed to initialize MongoDB: {error_msg}")
+        
+        # Provide helpful error messages
+        if "DNS" in error_msg or "resolution" in error_msg:
+            logger.error("💡 DNS Resolution Error - Check your network connection and MongoDB URI")
+            logger.error("💡 If using MongoDB Atlas, verify your connection string is correct")
+            logger.error("💡 Try using a direct connection string instead of SRV if DNS is failing")
+        elif "timeout" in error_msg.lower():
+            logger.error("💡 Connection Timeout - Check if MongoDB server is accessible")
+            logger.error("💡 Verify firewall settings and network connectivity")
+        
+        # Don't raise - allow app to start but database operations will fail gracefully
+        logger.warning("⚠️ Continuing without database connection - some features may not work")
+        return False
 
 
 # ============== USER OPERATIONS ==============
@@ -164,6 +202,11 @@ def get_user_projects(user_id):
 def update_project(project_id, updates):
     """Update a project"""
     try:
+        # Validate ObjectId
+        if not ObjectId.is_valid(project_id):
+            logger.error(f"❌ Invalid project_id: {project_id}")
+            return False
+        
         updates['updated_at'] = datetime.utcnow()
         
         result = projects_collection.update_one(
@@ -183,6 +226,11 @@ def update_project(project_id, updates):
 def delete_project(project_id):
     """Delete a project and its messages and tasks"""
     try:
+        # Validate ObjectId
+        if not ObjectId.is_valid(project_id):
+            logger.error(f"❌ Invalid project_id: {project_id}")
+            return False
+        
         # Delete all messages for this project
         messages_collection.delete_many({"project_id": project_id})
         
@@ -218,11 +266,15 @@ def save_message(project_id, role, content, data=None):
         message['_id'] = str(result.inserted_id)
         message['id'] = str(result.inserted_id)
         
-        # Update project's updated_at timestamp
-        projects_collection.update_one(
-            {"_id": ObjectId(project_id)},
-            {"$set": {"updated_at": datetime.utcnow()}}
-        )
+        # Update project's updated_at timestamp (only if valid ObjectId)
+        if ObjectId.is_valid(project_id):
+            try:
+                projects_collection.update_one(
+                    {"_id": ObjectId(project_id)},
+                    {"$set": {"updated_at": datetime.utcnow()}}
+                )
+            except Exception:
+                pass  # Ignore update errors for project timestamp
         
         logger.info(f"✅ Message saved to project {project_id}")
         return message
@@ -375,15 +427,39 @@ def get_conversation_history(session_id):
 def create_tasks(project_id, subtasks, session_id=None):
     """Create multiple tasks from AI-generated subtasks"""
     try:
+        if not subtasks or not isinstance(subtasks, list):
+            logger.warning(f"⚠️ Invalid subtasks provided: {subtasks}")
+            return []
+        
+        if not project_id:
+            logger.error("❌ project_id is required")
+            return []
+        
         task_ids = []
         
         for subtask in subtasks:
+            # Skip invalid subtasks
+            if not isinstance(subtask, dict):
+                logger.warning(f"⚠️ Skipping invalid subtask: {subtask}")
+                continue
+            
+            # Ensure title exists
+            title = subtask.get("title") or subtask.get("task", "")
+            if not title:
+                logger.warning(f"⚠️ Skipping subtask with no title: {subtask}")
+                continue
+            
             task = {
                 "project_id": project_id,
-                "title": subtask.get("title") or subtask.get("task", ""),
+                "title": title,
                 "description": subtask.get("description", ""),
                 "priority": subtask.get("priority", "medium"),
-                "status": "pending",
+                "status": "pending_approval",  # Require approval before sending to Slack
+                "assigned_to": subtask.get("assigned_to", "Unassigned"),
+                "deadline": subtask.get("deadline", ""),  # YYYY-MM-DD format from LLM
+                "estimated_hours": subtask.get("estimated_hours", ""),
+                "timeline": subtask.get("timeline", ""),  # Human-readable timeline from LLM
+                "role": subtask.get("role", ""),
                 "session_id": session_id,
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow()
@@ -423,6 +499,11 @@ def get_project_tasks(project_id, status_filter=None):
 def update_task(task_id, updates):
     """Update a task"""
     try:
+        # Validate ObjectId
+        if not ObjectId.is_valid(task_id):
+            logger.error(f"❌ Invalid task_id: {task_id}")
+            return False
+        
         updates['updated_at'] = datetime.utcnow()
         
         result = tasks_collection.update_one(
@@ -442,6 +523,11 @@ def update_task(task_id, updates):
 def delete_task(task_id):
     """Delete a task"""
     try:
+        # Validate ObjectId
+        if not ObjectId.is_valid(task_id):
+            logger.error(f"❌ Invalid task_id: {task_id}")
+            return False
+        
         result = tasks_collection.delete_one({"_id": ObjectId(task_id)})
         
         if result.deleted_count > 0:
@@ -458,6 +544,12 @@ def delete_task(task_id):
 def get_database_stats():
     """Get database statistics"""
     try:
+        # Check if collections are initialized
+        if not all([users_collection, projects_collection, messages_collection, 
+                   tasks_collection, repo_context_collection, conversation_history_collection]):
+            logger.warning("⚠️ Some collections not initialized, returning empty stats")
+            return {}
+        
         stats = {
             "users": users_collection.count_documents({}),
             "projects": projects_collection.count_documents({}),
@@ -481,6 +573,11 @@ def get_db():
 def get_user_team_members(user_id):
     """Get all team members for a user"""
     try:
+        # Validate ObjectId before querying
+        if not ObjectId.is_valid(user_id):
+            logger.warning(f"⚠️ Invalid user_id format: {user_id}, returning empty list")
+            return []
+        
         members = list(db.team_members.find({'user_id': ObjectId(user_id)}))
         
         # Convert ObjectId to string and format for AI service
@@ -501,6 +598,83 @@ def get_user_team_members(user_id):
     except Exception as e:
         logger.error(f"❌ Error getting team members: {str(e)}")
         return []
+
+
+def get_weekly_deadlines(user_id, week_start_date=None):
+    """Get minimum deadlines for tasks in the current week"""
+    try:
+        from datetime import timedelta
+        
+        # Get all projects for the user
+        user_projects = list(projects_collection.find({"user_id": user_id}))
+        project_ids = [str(p["_id"]) for p in user_projects]
+        
+        if not project_ids:
+            return {"min_deadline": None, "tasks_this_week": [], "count": 0}
+        
+        # Calculate week range (Monday to Sunday)
+        if week_start_date:
+            try:
+                week_start = datetime.strptime(week_start_date, "%Y-%m-%d")
+            except:
+                week_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+                # Get Monday of current week
+                days_since_monday = week_start.weekday()
+                week_start = week_start - timedelta(days=days_since_monday)
+        else:
+            week_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            # Get Monday of current week
+            days_since_monday = week_start.weekday()
+            week_start = week_start - timedelta(days=days_since_monday)
+        
+        week_end = week_start + timedelta(days=6)
+        
+        # Get all tasks for user's projects
+        all_tasks = list(tasks_collection.find({"project_id": {"$in": project_ids}}))
+        
+        # Filter tasks with deadlines in this week
+        tasks_this_week = []
+        valid_deadlines = []
+        
+        for task in all_tasks:
+            deadline_str = task.get("deadline", "")
+            if deadline_str:
+                try:
+                    # Parse deadline (YYYY-MM-DD format)
+                    deadline_date = datetime.strptime(deadline_str, "%Y-%m-%d")
+                    
+                    # Check if deadline is within this week
+                    if week_start <= deadline_date <= week_end:
+                        tasks_this_week.append({
+                            "id": str(task.get("_id", "")),
+                            "title": task.get("title", ""),
+                            "deadline": deadline_str,
+                            "timeline": task.get("timeline", ""),
+                            "estimated_hours": task.get("estimated_hours", ""),
+                            "project_id": task.get("project_id", ""),
+                            "assigned_to": task.get("assigned_to", "Unassigned"),
+                            "status": task.get("status", "pending")
+                        })
+                        valid_deadlines.append(deadline_date)
+                except ValueError:
+                    # Invalid date format, skip
+                    continue
+        
+        # Find minimum deadline
+        min_deadline = None
+        if valid_deadlines:
+            min_deadline = min(valid_deadlines).strftime("%Y-%m-%d")
+        
+        return {
+            "min_deadline": min_deadline,
+            "week_start": week_start.strftime("%Y-%m-%d"),
+            "week_end": week_end.strftime("%Y-%m-%d"),
+            "tasks_this_week": sorted(tasks_this_week, key=lambda x: x.get("deadline", "")),
+            "count": len(tasks_this_week)
+        }
+    except Exception as e:
+        logger.error(f"❌ Error getting weekly deadlines: {str(e)}")
+        return {"min_deadline": None, "tasks_this_week": [], "count": 0}
 
 logger.info("✅ Database module initialized successfully")
 

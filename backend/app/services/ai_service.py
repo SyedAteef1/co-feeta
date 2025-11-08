@@ -279,8 +279,24 @@ Respond with valid JSON:
         logger.info(f"💡 Reasoning: {task_type_info['reasoning']}")
         
         # Step 2: Search codebase if updating existing features
+        # Extract owner and repo from repositories for codebase search
+        owner = None
+        repo = None
+        
+        if repositories and len(repositories) > 0:
+            # Use first repository for codebase search
+            first_repo = repositories[0]
+            owner = first_repo.get('owner')
+            repo = first_repo.get('repo')
+        elif multi_repo_context:
+            # Extract from multi_repo_context
+            first_repo_type = list(multi_repo_context.keys())[0]
+            first_repo_data = multi_repo_context[first_repo_type]
+            owner = first_repo_data.get('owner')
+            repo = first_repo_data.get('repo')
+        
         codebase_findings = []
-        if task_type_info['task_type'] in ['update', 'both'] and owner and repo:
+        if task_type_info['task_type'] in ['update', 'both'] and owner and repo and github_token:
             logger.info("🔍 Step 1B: Searching codebase for existing features...")
             codebase_findings = search_codebase_for_keywords(
                 owner, repo, task_type_info['keywords'], github_token
@@ -737,7 +753,14 @@ Build Process: {repo_context.get('deployment_info', {}).get('build_process', 'Un
             team_context += f"- {name} ({role}): {', '.join(skills)}\n"
         logger.info(f"👥 Team context built for {len(team_members)} members")
     
+    # Get current date for deadline calculation
+    from datetime import datetime, timedelta
+    today = datetime.utcnow()
+    current_date_str = today.strftime("%Y-%m-%d")
+    
     prompt = f"""You are a senior software architect with expertise in ALL programming languages and frameworks. Create a precise implementation plan based on the ACTUAL project analysis.
+
+CURRENT DATE: {current_date_str} (Use this as the starting point for all deadline calculations)
 
 TASK: "{task}"
 TASK TYPE: {task_type.upper()}
@@ -784,6 +807,22 @@ SUBTASK GENERATION RULES:
 - Reference actual files and modules found in the repository
 - Follow the detected architecture and patterns
 
+DEADLINE AND TIMELINE GENERATION RULES:
+- CURRENT DATE: {current_date_str} - Use this as the starting point for ALL deadline calculations
+- Calculate deadlines based on task complexity, dependencies, and realistic work estimates
+- Simple tasks (1-4 hours): Same day or next day deadline (add 0-1 days to current date)
+- Medium tasks (4-8 hours): 1-2 days deadline (add 1-2 days to current date)
+- Complex tasks (8+ hours): 2-5 days deadline (add 2-5 days to current date)
+- Very complex tasks (16+ hours): 5-7 days deadline (add 5-7 days to current date)
+- Consider dependencies: tasks that depend on others should have later deadlines than their dependencies
+- Use YYYY-MM-DD format for deadlines (e.g., {current_date_str} for today, or add days for future dates)
+- estimated_hours should be a number (e.g., 4, 8, 16) - realistic estimate based on the actual work required
+- timeline should be human-readable (e.g., "2 days", "4 hours", "1 week") - how long it will take to complete
+- IMPORTANT: Calculate actual dates by adding days to {current_date_str}. For example:
+  * Task taking 2 days: deadline = {today + timedelta(days=2):%Y-%m-%d}
+  * Task taking 1 week: deadline = {today + timedelta(days=7):%Y-%m-%d}
+  * Task taking 4 hours: deadline = {today + timedelta(days=1):%Y-%m-%d} (next day)
+
 EXAMPLES:
 - Simple task "Add logging" → 2 subtasks (setup logging, integrate in main files)
 - Complex task "Build user authentication" → 6 subtasks (database, API, frontend, tests, etc.)
@@ -809,7 +848,9 @@ Return ONLY valid JSON:
       "description": "Detailed implementation steps with specific file paths, methods, and technical requirements",
       "role": "Specific role for the technology (e.g., Senior Python Developer, React Frontend Developer, Java Spring Developer)",
       "assigned_to": "Best matching team member name or 'Unassigned' if no good match",
-      "deadline": "Day X",
+      "deadline": "YYYY-MM-DD format (e.g., 2024-11-15) - specific date when this task should be completed",
+      "estimated_hours": "Number of hours (e.g., 4, 8, 16) - realistic estimate based on complexity",
+      "timeline": "Human-readable timeline (e.g., '2 days', '1 week', '4 hours') - how long it will take to complete",
       "output": "Concrete deliverable with acceptance criteria",
       "dependencies": ["Prerequisites using actual project components"],
       "files_to_create": ["New files with correct extensions and naming"],

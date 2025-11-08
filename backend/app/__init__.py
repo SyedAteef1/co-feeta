@@ -27,6 +27,11 @@ def create_app():
     app.config.from_object(Config)
     app.secret_key = Config.SECRET_KEY  # Required for session
     
+    # Initialize Flask-JWT-Extended
+    from flask_jwt_extended import JWTManager
+    jwt = JWTManager(app)
+    logger.info("✅ JWT Manager initialized")
+    
     # Validate configuration
     try:
         Config.validate()
@@ -44,8 +49,11 @@ def create_app():
     
     # Initialize database
     from app.database.mongodb import init_db
-    init_db()
-    logger.info("✅ Database initialized")
+    db_initialized = init_db()
+    if db_initialized:
+        logger.info("✅ Database initialized")
+    else:
+        logger.warning("⚠️ Database initialization failed - app will continue but database features may not work")
     
     # Register API blueprints
     from app.api.auth import auth_bp

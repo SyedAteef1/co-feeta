@@ -263,9 +263,13 @@ export default function AIChatInterface() {
 
       if (data.status === "clear" || data.status === "needs_context") {
         // Generate plan automatically
+        const token = localStorage.getItem('token');
         const planRes = await fetch("https://localhost:5000/api/generate_plan", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
           body: JSON.stringify({
             task: input,
             session_id: data.session_id,
@@ -321,9 +325,13 @@ export default function AIChatInterface() {
     setIsLoading(true);
 
     try {
+      const token = localStorage.getItem('token');
       const planRes = await fetch("https://localhost:5000/api/generate_plan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({
           task: message.data?.task || input,
           session_id: sessionId,
@@ -805,14 +813,24 @@ function MessageComponent({ message, index, onSubmitAnswers, onAssignAll, channe
                     <div key={si} className="bg-[#40414F] rounded-lg p-4">
                       <div className="flex justify-between items-start mb-2">
                         <div className="font-semibold text-sm">{si + 1}. {subtask.title}</div>
-                        <span className="text-xs text-green-400">{subtask.deadline}</span>
+                      <div className="flex items-center gap-2 text-xs">
+                        {subtask.timeline && (
+                          <span className="text-blue-400">⏱️ {subtask.timeline}</span>
+                        )}
+                        {subtask.deadline && (
+                          <span className="text-green-400">📅 {new Date(subtask.deadline).toLocaleDateString()}</span>
+                        )}
                       </div>
-                      <p className="text-xs text-gray-400 mb-2">{subtask.description}</p>
-                      <div className="flex gap-3 text-xs text-gray-500">
-                        <span>👤 {subtask.assigned_to}</span>
-                        <span>📦 {subtask.output}</span>
-                        <span>✅ {subtask.clarity_score}%</span>
-                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400 mb-2">{subtask.description}</p>
+                    <div className="flex gap-3 text-xs text-gray-500 flex-wrap">
+                      {subtask.estimated_hours && (
+                        <span className="text-yellow-400">⏰ {subtask.estimated_hours}h</span>
+                      )}
+                      <span>👤 {subtask.assigned_to}</span>
+                      {subtask.output && <span>📦 {subtask.output}</span>}
+                      {subtask.clarity_score && <span>✅ {subtask.clarity_score}%</span>}
+                    </div>
                     </div>
                   ))}
                 </div>
