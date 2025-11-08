@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 import os
 import tempfile
@@ -9,10 +8,14 @@ import json
 import PyPDF2
 from docx import Document
 from datetime import datetime
+import jwt
+import logging
 
 from app.database.mongodb import get_db
 
 teams_bp = Blueprint('teams', __name__)
+logger = logging.getLogger(__name__)
+JWT_SECRET = os.getenv('FLASK_SECRET', 'change_this_secret')
 
 # Configure Gemini AI
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
@@ -80,11 +83,16 @@ Return ONLY valid JSON, no markdown formatting.
         return None
 
 @teams_bp.route('/api/teams/analyze_resume', methods=['POST'])
-@jwt_required()
 def analyze_resume():
     """Analyze uploaded resume with AI"""
     try:
-        user_id = get_jwt_identity()
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({'error': 'No authorization provided'}), 401
+        
+        token = auth_header.replace('Bearer ', '')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload['user_id']
         
         if 'resume' not in request.files:
             return jsonify({'error': 'No resume file provided'}), 400
@@ -130,7 +138,6 @@ def analyze_resume():
         return jsonify({'error': 'Resume analysis failed'}), 500
 
 @teams_bp.route('/api/teams/preview', methods=['POST'])
-@jwt_required()
 def preview_resume():
     """Quick preview of resume analysis"""
     try:
@@ -167,11 +174,16 @@ def preview_resume():
         return jsonify({'suggested_roles': []})
 
 @teams_bp.route('/api/teams/members', methods=['POST'])
-@jwt_required()
 def add_member():
     """Add team member to database"""
     try:
-        user_id = get_jwt_identity()
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({'error': 'No authorization provided'}), 401
+        
+        token = auth_header.replace('Bearer ', '')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload['user_id']
         db = get_db()
         
         # Handle form data
@@ -256,11 +268,16 @@ def add_member():
         return jsonify({'error': 'Failed to add team member'}), 500
 
 @teams_bp.route('/api/teams/members', methods=['GET'])
-@jwt_required()
 def get_members():
     """Get all team members for user"""
     try:
-        user_id = get_jwt_identity()
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({'error': 'No authorization provided'}), 401
+        
+        token = auth_header.replace('Bearer ', '')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload['user_id']
         db = get_db()
         
         members = list(db.team_members.find({'user_id': ObjectId(user_id)}))
@@ -270,11 +287,11 @@ def get_members():
             member['_id'] = str(member['_id'])
             member['user_id'] = str(member['user_id'])
             
-            # Recalculate availability metrics
+            # Recalculate availability metrics (always use latest values from DB)
             current_load = member.get('current_load', 0)
             capacity = member.get('capacity', 40)
             idle_hours = max(capacity - current_load, 0)
-            idle_percentage = (idle_hours / capacity) * 100
+            idle_percentage = (idle_hours / capacity) * 100 if capacity > 0 else 100
             
             if idle_hours >= capacity * 0.5:
                 status = 'idle'
@@ -286,7 +303,9 @@ def get_members():
             member.update({
                 'idle_hours': idle_hours,
                 'idle_percentage': round(idle_percentage, 1),
-                'status': status
+                'status': status,
+                'current_load': current_load,
+                'capacity': capacity
             })
         
         return jsonify({
@@ -299,11 +318,16 @@ def get_members():
         return jsonify({'error': 'Failed to fetch team members'}), 500
 
 @teams_bp.route('/api/teams/members/<member_id>', methods=['DELETE'])
-@jwt_required()
 def delete_member(member_id):
     """Delete team member"""
     try:
-        user_id = get_jwt_identity()
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({'error': 'No authorization provided'}), 401
+        
+        token = auth_header.replace('Bearer ', '')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload['user_id']
         db = get_db()
         
         result = db.team_members.delete_one({
@@ -324,11 +348,16 @@ def delete_member(member_id):
         return jsonify({'error': 'Failed to delete team member'}), 500
 
 @teams_bp.route('/api/teams/members/<member_id>/workload', methods=['PATCH'])
-@jwt_required()
 def update_workload(member_id):
     """Update member workload"""
     try:
-        user_id = get_jwt_identity()
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({'error': 'No authorization provided'}), 401
+        
+        token = auth_header.replace('Bearer ', '')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload['user_id']
         db = get_db()
         data = request.get_json()
         
@@ -370,11 +399,16 @@ def update_workload(member_id):
         return jsonify({'error': 'Failed to update workload'}), 500
 
 @teams_bp.route('/api/teams/projects/<project_id>/team', methods=['GET'])
-@jwt_required()
 def get_project_team(project_id):
     """Get team members assigned to specific project"""
     try:
-        user_id = get_jwt_identity()
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({'error': 'No authorization provided'}), 401
+        
+        token = auth_header.replace('Bearer ', '')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload['user_id']
         db = get_db()
         
         # For now, return empty array as project-team assignment is not implemented

@@ -583,13 +583,31 @@ def get_user_team_members(user_id):
         # Convert ObjectId to string and format for AI service
         formatted_members = []
         for member in members:
+            # Recalculate metrics to ensure they're up to date
+            current_load = member.get('current_load', 0)
+            capacity = member.get('capacity', 40)
+            idle_hours = max(capacity - current_load, 0)
+            idle_percentage = (idle_hours / capacity) * 100 if capacity > 0 else 100
+            
+            if idle_hours >= capacity * 0.5:
+                status = 'idle'
+            elif idle_hours > 0:
+                status = 'busy'
+            else:
+                status = 'overloaded'
+            
             formatted_member = {
                 'name': member.get('name', member.get('email', 'Unknown')),
+                'email': member.get('email', ''),
                 'role': member.get('role', 'Developer'),
                 'skills': member.get('skills', []),
                 'expertise': member.get('expertise', []),
                 'experience_years': member.get('experience_years', 0),
-                'status': member.get('status', 'available')
+                'status': status,
+                'idle_percentage': round(idle_percentage, 1),
+                'idle_hours': idle_hours,
+                'current_load': current_load,
+                'capacity': capacity
             }
             formatted_members.append(formatted_member)
         
@@ -598,6 +616,73 @@ def get_user_team_members(user_id):
     except Exception as e:
         logger.error(f"❌ Error getting team members: {str(e)}")
         return []
+
+
+def update_member_workload(member_name, member_email, hours_change):
+    """Update team member workload when tasks are assigned or completed
+    
+    Args:
+        member_name: Name of the team member
+        member_email: Email of the team member (for lookup)
+        hours_change: Positive for assigned tasks (decrease idle), negative for completed (increase idle)
+    """
+    try:
+        from bson import ObjectId
+        
+        # Find member by name or email
+        query = {}
+        if member_email:
+            query['email'] = member_email
+        elif member_name:
+            query['name'] = member_name
+        
+        if not query:
+            logger.warning(f"⚠️ Cannot update workload: no member identifier provided")
+            return False
+        
+        member = db.team_members.find_one(query)
+        if not member:
+            logger.warning(f"⚠️ Member not found: {member_name or member_email}")
+            return False
+        
+        # Get current workload
+        current_load = member.get('current_load', 0)
+        capacity = member.get('capacity', 40)
+        
+        # Update workload
+        new_load = max(0, current_load + hours_change)  # Don't go below 0
+        new_load = min(new_load, capacity * 2)  # Cap at 2x capacity
+        
+        # Calculate new metrics
+        idle_hours = max(capacity - new_load, 0)
+        idle_percentage = (idle_hours / capacity) * 100 if capacity > 0 else 0
+        
+        # Determine status
+        if idle_hours >= capacity * 0.5:
+            status = 'idle'
+        elif idle_hours > 0:
+            status = 'busy'
+        else:
+            status = 'overloaded'
+        
+        # Update member
+        db.team_members.update_one(
+            {'_id': member['_id']},
+            {'$set': {
+                'current_load': new_load,
+                'idle_hours': idle_hours,
+                'idle_percentage': round(idle_percentage, 1),
+                'status': status,
+                'updated_at': datetime.utcnow()
+            }}
+        )
+        
+        logger.info(f"✅ Updated {member_name or member_email}: load={new_load}h, idle={idle_percentage:.1f}%")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Error updating member workload: {str(e)}")
+        return False
 
 
 def get_weekly_deadlines(user_id, week_start_date=None):

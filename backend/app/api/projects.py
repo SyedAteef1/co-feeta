@@ -6,11 +6,12 @@ from flask import Blueprint, request, jsonify
 import logging
 import jwt
 import os
+import requests
 from app.database.mongodb import (
     create_project, get_user_projects, update_project, delete_project,
     save_message, get_project_messages, get_database_stats,
     create_tasks, get_project_tasks, update_task, delete_task,
-    get_weekly_deadlines
+    get_weekly_deadlines, get_user_team_members, update_member_workload
 )
 
 logger = logging.getLogger(__name__)
@@ -377,9 +378,34 @@ def update_task_route(task_id):
     try:
         # Verify JWT token
         token = auth_header.replace('Bearer ', '')
-        jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload['user_id']
         
         data = request.get_json()
+        
+        # Get current task to check status change
+        # First, find the task to get its project_id
+        from app.database.mongodb import tasks_collection
+        from bson import ObjectId
+        
+        current_task = None
+        try:
+            if ObjectId.is_valid(task_id):
+                task_doc = tasks_collection.find_one({"_id": ObjectId(task_id)})
+                if task_doc:
+                    current_task = {
+                        'id': str(task_doc['_id']),
+                        'project_id': task_doc.get('project_id', ''),
+                        'status': task_doc.get('status', ''),
+                        'assigned_to': task_doc.get('assigned_to', ''),
+                        'estimated_hours': task_doc.get('estimated_hours', '')
+                    }
+        except Exception as e:
+            logger.error(f"Error finding task: {e}")
+        
+        old_status = current_task.get('status') if current_task else None
+        new_status = data.get('status')
+        assigned_to = data.get('assigned_to') or (current_task.get('assigned_to') if current_task else None)
         
         # Remove fields that shouldn't be updated directly
         updates = {k: v for k, v in data.items() if k not in ['_id', 'id', 'project_id', 'created_at', 'created_from']}
@@ -389,6 +415,45 @@ def update_task_route(task_id):
         success = update_task(task_id, updates)
         
         if success:
+            # Handle workload updates when task status changes
+            if old_status and new_status and old_status != new_status:
+                # Task completed/done - increase idle percentage
+                if new_status in ['completed', 'done', 'finished'] and old_status not in ['completed', 'done', 'finished']:
+                    if assigned_to and assigned_to != 'Unassigned' and current_task:
+                        estimated_hours = current_task.get('estimated_hours', '')
+                        if estimated_hours:
+                            try:
+                                hours = float(str(estimated_hours).strip())
+                                if hours > 0:
+                                    # Find member email from team members
+                                    team_members = get_user_team_members(user_id)
+                                    member_email = None
+                                    for member in team_members:
+                                        if member.get('name') == assigned_to:
+                                            member_email = member.get('email')
+                                            break
+                                    update_member_workload(assigned_to, member_email, -hours)  # Negative = increase idle
+                            except (ValueError, TypeError):
+                                pass
+                
+                # Task reopened/in progress - decrease idle percentage
+                elif new_status in ['in_progress', 'assigned', 'approved'] and old_status in ['completed', 'done', 'finished']:
+                    if assigned_to and assigned_to != 'Unassigned' and current_task:
+                        estimated_hours = current_task.get('estimated_hours', '')
+                        if estimated_hours:
+                            try:
+                                hours = float(str(estimated_hours).strip())
+                                if hours > 0:
+                                    team_members = get_user_team_members(user_id)
+                                    member_email = None
+                                    for member in team_members:
+                                        if member.get('name') == assigned_to:
+                                            member_email = member.get('email')
+                                            break
+                                    update_member_workload(assigned_to, member_email, hours)  # Positive = decrease idle
+                            except (ValueError, TypeError):
+                                pass
+            
             return jsonify({"ok": True})
         else:
             return jsonify({"error": "Failed to update task"}), 500
@@ -432,9 +497,70 @@ def delete_task_route(task_id):
         return jsonify({"error": str(e)}), 500
 
 
+def match_task_to_members(task, team_members):
+    """Match a task to team members based on skills and role"""
+    if not team_members:
+        return []
+    
+    task_title = task.get('title', '').lower()
+    task_description = task.get('description', '').lower()
+    task_role = task.get('role', '').lower()
+    task_text = f"{task_title} {task_description} {task_role}"
+    
+    matches = []
+    
+    for member in team_members:
+        score = 0
+        member_skills = [s.lower() for s in member.get('skills', [])]
+        member_expertise = [e.lower() for e in member.get('expertise', [])]
+        member_role = member.get('role', '').lower()
+        
+        # Check skill matches
+        for skill in member_skills:
+            if skill in task_text:
+                score += 2
+        
+        # Check expertise matches
+        for expertise in member_expertise:
+            if expertise in task_text:
+                score += 3
+        
+        # Check role match
+        if task_role and member_role:
+            if task_role in member_role or member_role in task_role:
+                score += 5
+        
+        # Check if member is idle (prefer idle members)
+        if member.get('status') == 'idle':
+            score += 2
+        
+        if score > 0:
+            matches.append({
+                'member': member,
+                'score': score,
+                'match_reasons': []
+            })
+            
+            # Add match reasons
+            matched_skills = [s for s in member_skills if s in task_text]
+            if matched_skills:
+                matches[-1]['match_reasons'].append(f"Skills: {', '.join(matched_skills[:3])}")
+            
+            if task_role and member_role and (task_role in member_role or member_role in task_role):
+                matches[-1]['match_reasons'].append(f"Role: {member_role}")
+            
+            if member.get('status') == 'idle':
+                matches[-1]['match_reasons'].append("Available (idle)")
+    
+    # Sort by score descending
+    matches.sort(key=lambda x: x['score'], reverse=True)
+    
+    return matches[:3]  # Return top 3 matches
+
+
 @project_bp.route("/projects/<project_id>/tasks/pending-approval", methods=["GET"])
 def get_pending_approval_tasks(project_id):
-    """Get all tasks pending approval for a project"""
+    """Get all tasks pending approval for a project with suggested team members"""
     auth_header = request.headers.get('Authorization')
     if not auth_header:
         return jsonify({"error": "No authorization provided"}), 401
@@ -442,16 +568,42 @@ def get_pending_approval_tasks(project_id):
     try:
         # Verify JWT token
         token = auth_header.replace('Bearer ', '')
-        jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload['user_id']
         
         logger.info(f"📋 Fetching pending approval tasks for project {project_id}")
         
         tasks = get_project_tasks(project_id, status_filter="pending_approval")
         
+        # Get team members for matching
+        team_members = get_user_team_members(user_id)
+        
+        # Match each task to team members
+        tasks_with_suggestions = []
+        for task in tasks:
+            suggestions = match_task_to_members(task, team_members)
+            task['suggested_members'] = [
+                {
+                    'name': m['member'].get('name', 'Unknown'),
+                    'email': m['member'].get('email', ''),
+                    'role': m['member'].get('role', ''),
+                    'skills': m['member'].get('skills', [])[:5],
+                    'score': m['score'],
+                    'match_reasons': m['match_reasons'],
+                    'status': m['member'].get('status', 'idle'),
+                    'idle_percentage': m['member'].get('idle_percentage', 100),
+                    'idle_hours': m['member'].get('idle_hours', 40),
+                    'current_load': m['member'].get('current_load', 0),
+                    'capacity': m['member'].get('capacity', 40)
+                }
+                for m in suggestions
+            ]
+            tasks_with_suggestions.append(task)
+        
         return jsonify({
             "ok": True,
-            "tasks": tasks,
-            "count": len(tasks)
+            "tasks": tasks_with_suggestions,
+            "count": len(tasks_with_suggestions)
         })
         
     except jwt.ExpiredSignatureError:
@@ -479,6 +631,7 @@ def approve_and_send_tasks(project_id):
         data = request.get_json()
         task_ids = data.get('task_ids', [])
         channel_id = data.get('channel_id')  # Optional: Slack channel ID
+        task_assignments = data.get('task_assignments', {})  # {task_id: {assigned_member_name, assigned_member_email}}
         
         if not task_ids:
             return jsonify({"error": "task_ids required"}), 400
@@ -500,7 +653,15 @@ def approve_and_send_tasks(project_id):
             for task_id in task_ids:
                 task = next((t for t in all_tasks if t.get('id') == task_id), None)
                 if task and task.get('status') == 'pending_approval':
-                    update_task(task_id, {"status": "approved"})
+                    # Update assigned member if provided
+                    assignment = task_assignments.get(task_id, {})
+                    if assignment.get('assigned_member_name'):
+                        update_task(task_id, {
+                            "status": "approved",
+                            "assigned_to": assignment.get('assigned_member_name')
+                        })
+                    else:
+                        update_task(task_id, {"status": "approved"})
                     approved_count += 1
                 else:
                     failed_tasks.append(task_id)
@@ -515,6 +676,23 @@ def approve_and_send_tasks(project_id):
         # Send approved tasks to Slack
         slack_token = slack_token_info.get("bot_token") or slack_token_info.get("access_token")
         
+        # Function to find Slack user by email
+        def find_slack_user_by_email(email):
+            """Find Slack user ID by email"""
+            try:
+                users_url = "https://slack.com/api/users.list"
+                headers = {"Authorization": f"Bearer {slack_token}"}
+                response = requests.get(users_url, headers=headers)
+                if response.ok:
+                    users_data = response.json()
+                    if users_data.get('ok'):
+                        for user in users_data.get('members', []):
+                            if user.get('profile', {}).get('email') == email:
+                                return user.get('id')
+            except Exception as e:
+                logger.error(f"Error finding Slack user: {e}")
+            return None
+        
         for task_id in task_ids:
             task = next((t for t in all_tasks if t.get('id') == task_id), None)
             
@@ -522,28 +700,64 @@ def approve_and_send_tasks(project_id):
                 failed_tasks.append(task_id)
                 continue
             
-            # Update task status to approved
-            update_task(task_id, {"status": "approved"})
+            # Get assignment info
+            assignment = task_assignments.get(task_id, {})
+            assigned_member_name = assignment.get('assigned_member_name') or task.get('assigned_to', 'Unassigned')
+            assigned_member_email = assignment.get('assigned_member_email')
+            
+            # Update task status and assigned member
+            update_data = {"status": "approved"}
+            if assigned_member_name and assigned_member_name != 'Unassigned':
+                update_data["assigned_to"] = assigned_member_name
+                
+                # Update member workload (decrease idle percentage)
+                estimated_hours = task.get('estimated_hours', '')
+                if estimated_hours:
+                    try:
+                        hours = float(str(estimated_hours).strip())
+                        if hours > 0:
+                            update_member_workload(assigned_member_name, assigned_member_email, hours)
+                    except (ValueError, TypeError):
+                        pass  # Skip if hours can't be parsed
+            
+            update_task(task_id, update_data)
             
             # Format task message for Slack
             task_title = task.get('title', 'New Task')
             task_description = task.get('description', '')
-            assigned_to = task.get('assigned_to', 'Unassigned')
             deadline = task.get('deadline', 'Not set')
+            timeline = task.get('timeline', '')
             estimated_hours = task.get('estimated_hours', 'Not specified')
             
-            message = f"""📋 *New Task: {task_title}*
+            # Find Slack user ID for tagging
+            slack_user_id = None
+            if assigned_member_email:
+                slack_user_id = find_slack_user_by_email(assigned_member_email)
             
+            # Build message with mention
+            mention = f"<@{slack_user_id}>" if slack_user_id else assigned_member_name
+            if slack_user_id:
+                message = f"""📋 *New Task: {task_title}*
+
 {task_description}
 
-👤 *Assigned to:* {assigned_to}
+👤 *Assigned to:* {mention}
 ⏰ *Deadline:* {deadline}
-⏱️ *Estimated Time:* {estimated_hours}
+⏱️ *Estimated Time:* {estimated_hours} {f"({timeline})" if timeline else ""}
+
+Please confirm receipt and provide updates as you progress."""
+            else:
+                message = f"""📋 *New Task: {task_title}*
+
+{task_description}
+
+👤 *Assigned to:* {assigned_member_name}
+⏰ *Deadline:* {deadline}
+⏱️ *Estimated Time:* {estimated_hours} {f"({timeline})" if timeline else ""}
 
 Please confirm receipt and provide updates as you progress."""
             
             # Send to Slack
-            import requests
             url = "https://slack.com/api/chat.postMessage"
             headers = {
                 "Authorization": f"Bearer {slack_token}",
