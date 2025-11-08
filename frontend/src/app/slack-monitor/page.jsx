@@ -77,7 +77,7 @@ export default function SlackMonitor() {
     if (!token) return;
 
     try {
-      const res = await fetch(`https://localhost:5000/slack/api/list_conversations`, {
+      const res = await fetch(`http://localhost:5000/slack/api/list_conversations`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -97,7 +97,7 @@ export default function SlackMonitor() {
     setLoadingSummary(true);
 
     try {
-      const historyRes = await fetch(`https://localhost:5000/slack/api/channel_history?channel=${channelId}&limit=50`, {
+      const historyRes = await fetch(`http://localhost:5000/slack/api/channel_history?channel=${channelId}&limit=50`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -123,7 +123,7 @@ export default function SlackMonitor() {
         return;
       }
 
-      const summaryRes = await fetch(`https://localhost:5000/slack/api/summarize_channel`, {
+      const summaryRes = await fetch(`http://localhost:5000/slack/api/summarize_channel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -166,7 +166,7 @@ export default function SlackMonitor() {
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.push('/test')}
+              onClick={() => router.push('/demodash')}
               className="text-gray-400 hover:text-white transition"
             >
               ← Back

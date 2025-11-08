@@ -15,7 +15,7 @@ class Config:
     DEBUG = os.getenv("DEBUG", "False").lower() == "true"
     
     # URLs
-    BACKEND_URL = os.getenv("BASE_URL", "https://localhost:5000")
+    BACKEND_URL = os.getenv("BASE_URL", "http://localhost:5000")
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
     
     # MongoDB

@@ -9,11 +9,11 @@ from app import create_app
 app = create_app()
 
 if __name__ == "__main__":
-    # Run with HTTPS for Slack OAuth
-    # For production, use a proper WSGI server like Gunicorn
+    # Run with HTTP for development (no SSL certificate errors)
+    # For production, use a proper WSGI server like Gunicorn with HTTPS
     app.run(
         host="0.0.0.0",
         port=5000,
-        debug=True,
-        ssl_context='adhoc'  # Self-signed certificate for development
+        debug=True
+        # SSL removed for easier development - no certificate errors
     )

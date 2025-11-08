@@ -28,7 +28,7 @@ export default function TeamsPage() {
 
   const fetchAllMembers = async () => {
     const token = localStorage.getItem('token');
-    const res = await fetch('https://localhost:5000/api/teams/members', {
+    const res = await fetch('http://localhost:5000/api/teams/members', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const data = await res.json();
@@ -37,7 +37,7 @@ export default function TeamsPage() {
 
   const fetchProjects = async () => {
     const token = localStorage.getItem('token');
-    const res = await fetch('https://localhost:5000/api/projects', {
+    const res = await fetch('http://localhost:5000/api/projects', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const data = await res.json();
@@ -46,7 +46,7 @@ export default function TeamsPage() {
 
   const fetchProjectTeam = async (projectId) => {
     const token = localStorage.getItem('token');
-    const res = await fetch(`https://localhost:5000/api/teams/projects/${projectId}/team`, {
+    const res = await fetch(`http://localhost:5000/api/teams/projects/${projectId}/team`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const data = await res.json();
@@ -63,7 +63,7 @@ export default function TeamsPage() {
     
     const token = localStorage.getItem('token');
     
-    const res = await fetch('https://localhost:5000/api/teams/members', {
+    const res = await fetch('http://localhost:5000/api/teams/members', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
       body: formData
@@ -81,7 +81,7 @@ export default function TeamsPage() {
     if (!confirm('Remove this member?')) return;
     
     const token = localStorage.getItem('token');
-    await fetch(`https://localhost:5000/api/teams/members/${memberId}`, {
+    await fetch(`http://localhost:5000/api/teams/members/${memberId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -90,7 +90,7 @@ export default function TeamsPage() {
 
   const handleUpdateWorkload = async (memberId, currentLoad, capacity) => {
     const token = localStorage.getItem('token');
-    await fetch(`https://localhost:5000/api/teams/members/${memberId}/workload`, {
+    await fetch(`http://localhost:5000/api/teams/members/${memberId}/workload`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -372,7 +372,7 @@ export default function TeamsPage() {
                     
                     try {
                       const token = localStorage.getItem('token');
-                      const res = await fetch('https://localhost:5000/api/teams/preview', {
+                      const res = await fetch('http://localhost:5000/api/teams/preview', {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${token}` },
                         body: formData
