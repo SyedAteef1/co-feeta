@@ -3,8 +3,9 @@ from werkzeug.utils import secure_filename
 import os
 import tempfile
 from bson import ObjectId
-import google.generativeai as genai
 import json
+import re
+import requests
 import PyPDF2
 from docx import Document
 from datetime import datetime
@@ -16,42 +17,103 @@ from app.database.mongodb import get_db
 teams_bp = Blueprint('teams', __name__)
 logger = logging.getLogger(__name__)
 JWT_SECRET = os.getenv('FLASK_SECRET', 'change_this_secret')
-
-# Configure Gemini AI
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 def extract_text_from_pdf(file_path):
     """Extract text from PDF file"""
     try:
+        logger.info(f"📄 Extracting text from PDF: {file_path}")
         with open(file_path, 'rb') as file:
             pdf_reader = PyPDF2.PdfReader(file)
             text = ""
-            for page in pdf_reader.pages:
-                text += page.extract_text() + "\n"
-        return text
+            num_pages = len(pdf_reader.pages)
+            logger.info(f"📄 PDF has {num_pages} pages")
+            
+            for i, page in enumerate(pdf_reader.pages):
+                try:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+                except Exception as page_error:
+                    logger.warning(f"⚠️ Error extracting page {i+1}: {page_error}")
+                    continue
+            
+            logger.info(f"✅ Extracted {len(text)} characters from PDF")
+            return text
     except Exception as e:
-        print(f"Error extracting PDF text: {e}")
+        logger.error(f"❌ Error extracting PDF text: {str(e)}")
+        logger.exception("Full traceback:")
         return ""
 
 def extract_text_from_docx(file_path):
     """Extract text from DOCX file"""
     try:
+        logger.info(f"📄 Extracting text from DOCX: {file_path}")
         doc = Document(file_path)
         text = ""
         for paragraph in doc.paragraphs:
-            text += paragraph.text + "\n"
+            if paragraph.text.strip():
+                text += paragraph.text + "\n"
+        
+        logger.info(f"✅ Extracted {len(text)} characters from DOCX")
         return text
     except Exception as e:
-        print(f"Error extracting DOCX text: {e}")
+        logger.error(f"❌ Error extracting DOCX text: {str(e)}")
+        logger.exception("Full traceback:")
         return ""
 
-def analyze_resume_with_ai(resume_text):
-    """Analyze resume using Gemini AI"""
+def parse_json_from_text(text, context="resume analysis"):
+    """Extract and parse JSON from text with error recovery"""
     try:
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        # Try to find JSON in the text (handle markdown code blocks)
+        json_match = re.search(r'\{[\s\S]*\}', text)
+        if not json_match:
+            logger.error(f"❌ Could not find JSON in {context}")
+            raise Exception(f"No JSON found in {context}")
         
-        prompt = f"""
-Analyze this resume and extract the following information in JSON format:
+        json_str = json_match.group()
+        logger.info(f"📝 Extracted JSON ({len(json_str)} chars)")
+        
+        # Try to parse the JSON
+        try:
+            return json.loads(json_str)
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ JSON Parse Error at position {e.pos}: {e.msg}")
+            logger.error(f"📄 Problematic JSON snippet: ...{json_str[max(0, e.pos-100):min(len(json_str), e.pos+100)]}...")
+            
+            # Try to fix common JSON errors
+            # Remove trailing commas before } or ]
+            fixed_json = re.sub(r',(\s*[}\]])', r'\1', json_str)
+            # Remove comments if any
+            fixed_json = re.sub(r'//.*?\n', '\n', fixed_json)
+            fixed_json = re.sub(r'/\*.*?\*/', '', fixed_json, flags=re.DOTALL)
+            
+            try:
+                logger.info("🔧 Attempting to fix JSON errors...")
+                return json.loads(fixed_json)
+            except json.JSONDecodeError as e2:
+                logger.error(f"❌ Could not fix JSON automatically")
+                logger.error(f"📄 Full malformed JSON:\n{json_str[:1000]}...")
+                raise Exception(f"Invalid JSON in {context}: {e.msg} at position {e.pos}")
+    except Exception as e:
+        logger.error(f"❌ JSON extraction failed: {str(e)}")
+        raise
+
+
+def analyze_resume_with_ai(resume_text):
+    """Analyze resume using Gemini AI via REST API"""
+    try:
+        if not resume_text or not resume_text.strip():
+            logger.error("❌ Empty resume text provided")
+            return None
+        
+        if not GEMINI_API_KEY:
+            logger.error("❌ GEMINI_API_KEY not configured")
+            return None
+        
+        logger.info(f"🤖 Starting resume analysis (text length: {len(resume_text)} chars)")
+        
+        prompt = f"""Analyze this resume and extract the following information in JSON format:
 {{
     "name": "Full Name",
     "email": "email@example.com or empty string if not found",
@@ -66,20 +128,102 @@ Analyze this resume and extract the following information in JSON format:
 Resume Text:
 {resume_text[:4000]}
 
-Return ONLY valid JSON, no markdown formatting.
-"""
+CRITICAL: Return ONLY valid JSON. No markdown, no code blocks, no extra text. Do not use trailing commas. Ensure all strings are properly quoted.
+
+Return valid JSON:"""
         
-        response = model.generate_content(prompt)
-        result = json.loads(response.text)
+        logger.info("🚀 Calling Gemini API for resume analysis...")
+        api_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent'
+        
+        response = requests.post(
+            api_url,
+            headers={'Content-Type': 'application/json'},
+            params={'key': GEMINI_API_KEY},
+            json={
+                'contents': [{'parts': [{'text': prompt}]}],
+                'generationConfig': {
+                    'temperature': 0.3,
+                    'maxOutputTokens': 2048
+                }
+            },
+            timeout=60
+        )
+        
+        logger.info(f"✅ Gemini Response Status: {response.status_code}")
+        
+        if response.status_code != 200:
+            logger.error(f"❌ Gemini API returned status {response.status_code}")
+            logger.error(f"Response: {response.text[:500]}")
+            return None
+        
+        data = response.json()
+        logger.info(f"📦 Response Keys: {list(data.keys())}")
+        
+        # Check for errors in response
+        if 'error' in data:
+            error_msg = data['error'].get('message', 'Unknown error')
+            logger.error(f"❌ Gemini API Error: {error_msg}")
+            return None
+        
+        # Check if candidates exist
+        if 'candidates' not in data or not data.get('candidates'):
+            logger.error(f"❌ No candidates in response. Full response: {json.dumps(data)[:500]}")
+            if 'promptFeedback' in data:
+                feedback = data['promptFeedback']
+                logger.error(f"⚠️ Prompt Feedback: {json.dumps(feedback)}")
+                if 'blockReason' in feedback:
+                    logger.error(f"❌ Content blocked: {feedback['blockReason']}")
+            return None
+        
+        text = data['candidates'][0]['content']['parts'][0]['text']
+        logger.info(f"✅ Gemini Response received ({len(text)} chars)")
+        logger.info(f"📝 Response preview: {text[:200]}...")
+        
+        # Parse JSON from response (handles markdown code blocks)
+        result = parse_json_from_text(text, "resume analysis")
+        
+        # Validate required fields
+        if not result.get('name'):
+            logger.warning("⚠️ No name found in resume analysis")
+            result['name'] = 'Unknown'
+        
+        if not result.get('skills'):
+            logger.warning("⚠️ No skills found in resume analysis")
+            result['skills'] = []
+        
+        if not result.get('role'):
+            logger.warning("⚠️ No role found in resume analysis")
+            result['role'] = 'Developer'
+        
+        # Ensure experience_years is a number
+        if not isinstance(result.get('experience_years'), (int, float)):
+            try:
+                result['experience_years'] = float(result.get('experience_years', 0))
+            except (ValueError, TypeError):
+                result['experience_years'] = 0
         
         # Add summary field (shorter version of description)
         if result.get('description'):
             sentences = result['description'].split('. ')
             result['summary'] = '. '.join(sentences[:2]) + '.' if len(sentences) > 1 else result['description']
+        else:
+            result['summary'] = ''
         
+        logger.info(f"✅ Resume analysis complete: {result.get('name')}, {len(result.get('skills', []))} skills")
         return result
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"❌ Network error calling Gemini API: {str(e)}")
+        logger.exception("Full traceback:")
+        return None
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ JSON parsing error: {str(e)}")
+        if 'text' in locals():
+            logger.error(f"📄 Response text: {text[:500]}")
+        return None
     except Exception as e:
-        print(f"AI analysis error: {e}")
+        logger.error(f"❌ AI analysis error: {str(e)}")
+        logger.exception("Full traceback:")
         return None
 
 @teams_bp.route('/api/teams/analyze_resume', methods=['POST'])
@@ -123,9 +267,13 @@ def analyze_resume():
             return jsonify({'error': 'Could not extract text from resume'}), 400
         
         # Analyze with AI
+        logger.info("🤖 Starting AI analysis...")
         analysis = analyze_resume_with_ai(resume_text)
         if not analysis:
-            return jsonify({'error': 'AI analysis failed'}), 500
+            logger.error("❌ AI analysis returned None")
+            return jsonify({'error': 'AI analysis failed. Please check the resume format and try again.'}), 500
+        
+        logger.info(f"✅ Resume analysis successful: {analysis.get('name', 'Unknown')}")
         
         return jsonify({
             'success': True,
@@ -133,9 +281,14 @@ def analyze_resume():
             'resume_text': resume_text[:1000]  # First 1000 chars for preview
         })
         
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
     except Exception as e:
-        print(f"Resume analysis error: {e}")
-        return jsonify({'error': 'Resume analysis failed'}), 500
+        logger.error(f"❌ Resume analysis error: {str(e)}")
+        logger.exception("Full traceback:")
+        return jsonify({'error': f'Resume analysis failed: {str(e)}'}), 500
 
 @teams_bp.route('/api/teams/preview', methods=['POST'])
 def preview_resume():
