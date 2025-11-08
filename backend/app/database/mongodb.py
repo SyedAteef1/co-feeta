@@ -435,6 +435,22 @@ def create_tasks(project_id, subtasks, session_id=None):
             logger.error("❌ project_id is required")
             return []
         
+        # Normalize project_id - ensure it's stored consistently
+        # Try to convert to ObjectId if it's a string, otherwise use as-is
+        try:
+            if isinstance(project_id, str):
+                # Try to convert string to ObjectId for consistency
+                project_id_obj = ObjectId(project_id)
+                # Store both formats for compatibility
+                normalized_project_id = project_id_obj
+            else:
+                normalized_project_id = project_id
+        except:
+            # If conversion fails, use string as-is
+            normalized_project_id = str(project_id)
+        
+        logger.info(f"📝 Creating tasks for project_id: {project_id} (normalized: {normalized_project_id})")
+        
         task_ids = []
         
         for subtask in subtasks:
@@ -450,7 +466,7 @@ def create_tasks(project_id, subtasks, session_id=None):
                 continue
             
             task = {
-                "project_id": project_id,
+                "project_id": normalized_project_id,  # Use normalized project_id
                 "title": title,
                 "description": subtask.get("description", ""),
                 "priority": subtask.get("priority", "medium"),
@@ -467,11 +483,14 @@ def create_tasks(project_id, subtasks, session_id=None):
             
             result = tasks_collection.insert_one(task)
             task_ids.append(str(result.inserted_id))
+            logger.debug(f"✅ Created task: {title[:50]}... with project_id: {normalized_project_id}")
         
         logger.info(f"✅ Created {len(task_ids)} tasks for project {project_id}")
         return task_ids
     except Exception as e:
         logger.error(f"❌ Error creating tasks: {str(e)}")
+        import traceback
+        logger.error(f"❌ Traceback: {traceback.format_exc()}")
         return []
 
 
@@ -493,6 +512,121 @@ def get_project_tasks(project_id, status_filter=None):
         return tasks
     except Exception as e:
         logger.error(f"❌ Error getting tasks: {str(e)}")
+        return []
+
+
+def convert_objectid_to_string(obj):
+    """Recursively convert all ObjectId and datetime objects to strings for JSON serialization"""
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, dict):
+        return {key: convert_objectid_to_string(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_objectid_to_string(item) for item in obj]
+    else:
+        return obj
+
+
+def get_all_user_tasks(user_id):
+    """Get all tasks for a user across all their projects with project names"""
+    try:
+        logger.info(f"🔍 Getting all tasks for user: {user_id}")
+        
+        # Get all projects for the user
+        projects = get_user_projects(user_id)
+        logger.info(f"📂 Found {len(projects)} projects for user")
+        
+        if not projects:
+            logger.info("ℹ️ No projects found for user, returning empty task list")
+            return []
+        
+        # Create a map with both string and ObjectId keys for lookup
+        project_map = {}
+        project_ids_str = []
+        project_ids_obj = []
+        
+        for project in projects:
+            project_id_str = project['_id']
+            project_map[project_id_str] = project
+            project_map[str(project_id_str)] = project  # Also add as string key
+            project_ids_str.append(project_id_str)
+            # Also try to convert to ObjectId if possible
+            try:
+                project_ids_obj.append(ObjectId(project_id_str))
+                project_map[ObjectId(project_id_str)] = project  # Also add as ObjectId key
+            except:
+                pass
+        
+        # Get all tasks for these projects - try both string and ObjectId
+        all_project_ids = project_ids_str + project_ids_obj
+        logger.info(f"🔍 Searching for tasks with project_ids: {len(all_project_ids)} project IDs")
+        
+        # Query tasks - MongoDB will handle ObjectId conversion automatically
+        tasks = list(tasks_collection.find(
+            {"project_id": {"$in": all_project_ids}}
+        ).sort("created_at", DESCENDING))
+        
+        logger.info(f"📋 Found {len(tasks)} tasks in database")
+        
+        # Add project name and other project info to each task
+        # Also convert all ObjectId fields to strings for JSON serialization
+        serialized_tasks = []
+        for task in tasks:
+            # Store original project_id for lookup (before conversion)
+            original_project_id = task.get('project_id')
+            
+            # Convert project_id to string (if it's an ObjectId)
+            project_id = task.get('project_id')
+            if project_id:
+                if isinstance(project_id, ObjectId):
+                    project_id_str = str(project_id)
+                else:
+                    project_id_str = str(project_id)
+            else:
+                project_id_str = None
+            
+            # Try multiple ways to find the project
+            found_project = None
+            if project_id_str in project_map:
+                found_project = project_map[project_id_str]
+            elif original_project_id in project_map:
+                found_project = project_map[original_project_id]
+            elif project_id_str:
+                try:
+                    if ObjectId(project_id_str) in project_map:
+                        found_project = project_map[ObjectId(project_id_str)]
+                except:
+                    pass
+            
+            if found_project:
+                task['project_name'] = found_project.get('name', 'Unknown Project')
+                task['project'] = {
+                    'id': project_id_str,
+                    'name': found_project.get('name', 'Unknown Project')
+                }
+            else:
+                if project_id_str:
+                    logger.warning(f"⚠️ Could not find project for task {task.get('_id')} with project_id: {project_id_str}")
+                task['project_name'] = 'Unknown Project'
+                task['project'] = {
+                    'id': project_id_str,
+                    'name': 'Unknown Project'
+                }
+            
+            # Convert ALL ObjectId and datetime fields to strings recursively
+            serialized_task = convert_objectid_to_string(task)
+            serialized_tasks.append(serialized_task)
+        
+        tasks = serialized_tasks
+        
+        logger.info(f"✅ Returning {len(tasks)} tasks for user {user_id} across {len(projects)} projects")
+        return tasks
+    except Exception as e:
+        logger.error(f"❌ Error getting all user tasks: {str(e)}")
+        import traceback
+        logger.error(f"❌ Traceback: {traceback.format_exc()}")
         return []
 
 
