@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { RadialBarChart, RadialBar, LabelList, ResponsiveContainer } from 'recharts';
+import { TrendingUp } from 'lucide-react';
 
 // Tasks Page Component
 function TasksPage({ user }) {
@@ -115,7 +117,7 @@ function TasksPage({ user }) {
     if (!token) return;
 
     try {
-      const response = await fetch('https://localhost:5000/api/projects', {
+      const response = await fetch('http://localhost:5000/api/projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -142,9 +144,9 @@ function TasksPage({ user }) {
     setIsLoading(true);
     
     try {
-      console.log('📡 Fetching tasks from API: https://localhost:5000/api/tasks');
+      console.log('📡 Fetching tasks from API: http://localhost:5000/api/tasks');
       
-      const response = await fetch('https://localhost:5000/api/tasks', {
+      const response = await fetch('http://localhost:5000/api/tasks', {
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -624,7 +626,7 @@ function TeamsPage({ user }) {
     if (!token) return;
 
     try {
-      const response = await fetch('https://localhost:5000/api/teams/members', {
+      const response = await fetch('http://localhost:5000/api/teams/members', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -653,7 +655,7 @@ function TeamsPage({ user }) {
       const formData = new FormData();
       formData.append('resume', file);
 
-      const response = await fetch('https://localhost:5000/api/teams/analyze_resume', {
+      const response = await fetch('http://localhost:5000/api/teams/analyze_resume', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -690,7 +692,7 @@ function TeamsPage({ user }) {
       formData.append('email', email);
       formData.append('selected_roles', JSON.stringify(selectedRoles));
 
-      const response = await fetch('https://localhost:5000/api/teams/members', {
+      const response = await fetch('http://localhost:5000/api/teams/members', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -721,7 +723,7 @@ function TeamsPage({ user }) {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://localhost:5000/api/teams/members/${memberId}`, {
+      const response = await fetch(`http://localhost:5000/api/teams/members/${memberId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -1122,7 +1124,7 @@ export default function DemoDash() {
       }
 
       // Load projects
-      const projectsRes = await fetch('https://localhost:5000/api/projects', {
+      const projectsRes = await fetch('http://localhost:5000/api/projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (projectsRes.ok) {
@@ -1136,7 +1138,7 @@ export default function DemoDash() {
         for (const project of userProjects.slice(0, 10)) {
           const projectId = project._id || project.id;
           try {
-            const tasksRes = await fetch(`https://localhost:5000/api/projects/${projectId}/tasks`, {
+            const tasksRes = await fetch(`http://localhost:5000/api/projects/${projectId}/tasks`, {
               headers: { 'Authorization': `Bearer ${token}` }
             });
             if (tasksRes.ok) {
@@ -1152,7 +1154,7 @@ export default function DemoDash() {
       }
 
       // Load team members
-      const membersRes = await fetch('https://localhost:5000/api/teams/members', {
+      const membersRes = await fetch('http://localhost:5000/api/teams/members', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (membersRes.ok) {
@@ -1163,7 +1165,7 @@ export default function DemoDash() {
 
       // Load all tasks across all projects to calculate stats
       const allTasks = [];
-      const projectsRes2 = await fetch('https://localhost:5000/api/projects', {
+      const projectsRes2 = await fetch('http://localhost:5000/api/projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (projectsRes2.ok) {
@@ -1173,7 +1175,7 @@ export default function DemoDash() {
         for (const project of userProjects2) {
           const projectId = project._id || project.id;
           try {
-            const tasksRes = await fetch(`https://localhost:5000/api/projects/${projectId}/tasks`, {
+            const tasksRes = await fetch(`http://localhost:5000/api/projects/${projectId}/tasks`, {
               headers: { 'Authorization': `Bearer ${token}` }
             });
             if (tasksRes.ok) {
@@ -1298,7 +1300,7 @@ export default function DemoDash() {
     }
     
     try {
-      const response = await fetch('https://localhost:5000/auth/me', {
+      const response = await fetch('http://localhost:5000/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -1324,7 +1326,7 @@ export default function DemoDash() {
   const checkGithubConnection = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('https://localhost:5000/github/api/check_connection', {
+      const response = await fetch('http://localhost:5000/github/api/check_connection', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -1341,7 +1343,7 @@ export default function DemoDash() {
   const fetchRepos = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('https://localhost:5000/github/api/repos', {
+      const response = await fetch('http://localhost:5000/github/api/repos', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -1359,13 +1361,13 @@ export default function DemoDash() {
       alert("Please login first");
       return;
     }
-    window.location.href = `https://localhost:5000/github/install?token=${token}`;
+    window.location.href = `http://localhost:5000/github/install?token=${token}`;
   };
 
   const checkSlackConnection = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('https://localhost:5000/slack/api/status', {
+      const response = await fetch('http://localhost:5000/slack/api/status', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -1382,7 +1384,7 @@ export default function DemoDash() {
       alert("Please login first");
       return;
     }
-    window.location.href = `https://localhost:5000/slack/install?token=${token}`;
+    window.location.href = `http://localhost:5000/slack/install?token=${token}`;
   };
 
   const connectReposToProject = async () => {
@@ -1391,7 +1393,7 @@ export default function DemoDash() {
     const token = localStorage.getItem('token');
     try {
       console.log('🔄 Connecting repositories:', selectedRepos);
-      const response = await fetch(`https://localhost:5000/api/projects/${selectedProject._id}`, {
+      const response = await fetch(`http://localhost:5000/api/projects/${selectedProject._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1447,7 +1449,7 @@ export default function DemoDash() {
         if (!token) return;
         
         try {
-          const channelsRes = await fetch('https://localhost:5000/slack/api/list_conversations', {
+          const channelsRes = await fetch('http://localhost:5000/slack/api/list_conversations', {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           
@@ -1494,7 +1496,7 @@ export default function DemoDash() {
 
       try {
         // Get all channels
-        const channelsRes = await fetch('https://localhost:5000/slack/api/list_conversations', {
+        const channelsRes = await fetch('http://localhost:5000/slack/api/list_conversations', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -1519,7 +1521,7 @@ export default function DemoDash() {
 
         for (const channel of channels) {
           try {
-            const response = await fetch(`https://localhost:5000/slack/api/check-channel-mentions`, {
+            const response = await fetch(`http://localhost:5000/slack/api/check-channel-mentions`, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -1651,7 +1653,7 @@ export default function DemoDash() {
       let response;
       if (selectedProject) {
         // Use project-specific endpoint if project is selected
-        response = await fetch(`https://localhost:5000/api/projects/${selectedProject._id || selectedProject.id}/resolve-issue`, {
+        response = await fetch(`http://localhost:5000/api/projects/${selectedProject._id || selectedProject.id}/resolve-issue`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -1664,7 +1666,7 @@ export default function DemoDash() {
         });
       } else {
         // Use general endpoint if no project selected
-        response = await fetch(`https://localhost:5000/slack/api/resolve-issue`, {
+        response = await fetch(`http://localhost:5000/slack/api/resolve-issue`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -1718,7 +1720,7 @@ export default function DemoDash() {
         timestamp: new Date().toLocaleTimeString()
       }]);
 
-      const response = await fetch(`https://localhost:5000/slack/api/check-channel-mentions`, {
+      const response = await fetch(`http://localhost:5000/slack/api/check-channel-mentions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1732,7 +1734,7 @@ export default function DemoDash() {
         // Handle network errors
         let errorMsg = 'Network connection failed';
         if (fetchError.message.includes('Failed to fetch') || fetchError.message.includes('NetworkError')) {
-          errorMsg = 'Cannot connect to backend server. Please ensure:\n1. Backend server is running on https://localhost:5000\n2. SSL certificate is trusted (or use http://localhost:5000)\n3. No firewall is blocking the connection';
+          errorMsg = 'Cannot connect to backend server. Please ensure:\n1. Backend server is running on http://localhost:5000\n2. No firewall is blocking the connection';
         } else {
           errorMsg = fetchError.message;
         }
@@ -1825,7 +1827,7 @@ export default function DemoDash() {
       console.log(`📋 Loading pending tasks for project: ${projectId}`);
       
       // Fetch pending tasks with suggestions
-      const tasksRes = await fetch(`https://localhost:5000/api/projects/${projectId}/tasks/pending-approval`, {
+      const tasksRes = await fetch(`http://localhost:5000/api/projects/${projectId}/tasks/pending-approval`, {
         method: 'GET',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -1842,7 +1844,7 @@ export default function DemoDash() {
         
         // Fetch Slack channels (optional - don't fail if this fails)
         try {
-          const channelsRes = await fetch('https://localhost:5000/slack/api/list_conversations', {
+          const channelsRes = await fetch('http://localhost:5000/slack/api/list_conversations', {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           
@@ -1904,7 +1906,7 @@ export default function DemoDash() {
     try {
       console.log(`✅ Approving ${taskIds.length} tasks...`);
       
-      const response = await fetch(`https://localhost:5000/api/projects/${selectedProject._id || selectedProject.id}/tasks/approve`, {
+      const response = await fetch(`http://localhost:5000/api/projects/${selectedProject._id || selectedProject.id}/tasks/approve`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1969,7 +1971,7 @@ export default function DemoDash() {
     if (!token) return;
     
     try {
-      const response = await fetch('https://localhost:5000/api/projects', {
+      const response = await fetch('http://localhost:5000/api/projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -1989,7 +1991,7 @@ export default function DemoDash() {
     if (!token) return;
     
     try {
-      const response = await fetch('https://localhost:5000/api/projects', {
+      const response = await fetch('http://localhost:5000/api/projects', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -2067,7 +2069,7 @@ export default function DemoDash() {
     
     try {
       const projectId = project._id || project.id;
-      const response = await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
+      const response = await fetch(`http://localhost:5000/api/projects/${projectId}/messages`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -2119,7 +2121,7 @@ export default function DemoDash() {
       const projectId = selectedProject._id || selectedProject.id;
       
       try {
-        await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
+        await fetch(`http://localhost:5000/api/projects/${projectId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -2149,7 +2151,7 @@ export default function DemoDash() {
         repositories = [{ owner, repo: repoName, type: 'unknown' }];
       }
       
-      const res = await fetch("https://localhost:5000/api/analyze", {
+      const res = await fetch("http://localhost:5000/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2177,7 +2179,7 @@ export default function DemoDash() {
 
       if (data.status === "clear" || data.status === "needs_context") {
         const token = localStorage.getItem('token');
-        const planRes = await fetch("https://localhost:5000/api/generate_plan", {
+        const planRes = await fetch("http://localhost:5000/api/generate_plan", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
@@ -2199,7 +2201,7 @@ export default function DemoDash() {
           // Save tasks to database
           if (selectedProject && planData.subtasks) {
             try {
-              await fetch(`https://localhost:5000/api/projects/${projectId}/tasks`, {
+              await fetch(`http://localhost:5000/api/projects/${projectId}/tasks`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -2232,7 +2234,7 @@ export default function DemoDash() {
         const projectId = selectedProject._id || selectedProject.id;
         
         try {
-          await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
+          await fetch(`http://localhost:5000/api/projects/${projectId}/messages`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -2297,7 +2299,7 @@ export default function DemoDash() {
       };
 
       const token = localStorage.getItem('token');
-      const planRes = await fetch("https://localhost:5000/api/generate_plan", {
+      const planRes = await fetch("http://localhost:5000/api/generate_plan", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -2328,7 +2330,7 @@ export default function DemoDash() {
           
           try {
             // Save AI response message
-            await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
+            await fetch(`http://localhost:5000/api/projects/${projectId}/messages`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -2343,7 +2345,7 @@ export default function DemoDash() {
 
             // Save tasks to database
             if (planData.subtasks) {
-              await fetch(`https://localhost:5000/api/projects/${projectId}/tasks`, {
+              await fetch(`http://localhost:5000/api/projects/${projectId}/tasks`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -2630,26 +2632,11 @@ export default function DemoDash() {
             </>
           ) : (
             <>
-          <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <circle cx="7" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/>
-              <path d="M10 10L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-            <span>Search</span>
-          </button>
-          
           <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[#4C3BCF] hover:text-[#6B5CE6] hover:bg-[#1a1a1a] rounded-lg transition-colors">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M8 2L10 6L14 6.5L11 9.5L11.5 14L8 12L4.5 14L5 9.5L2 6.5L6 6L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
             </svg>
             <span>AI Agent</span>
-          </button>
-
-          <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <rect x="3" y="3" width="10" height="10" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-            </svg>
-            <span>Templates</span>
           </button>
 
           <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors">
@@ -2739,6 +2726,15 @@ export default function DemoDash() {
           <div className="pt-3 bg-[#111111]">
             <p className="text-xs text-gray-500 px-3 pb-2">Recents</p>
             <button 
+              onClick={() => handleMenuItemClick('recent-projects')}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-sm ${activePage === 'recent-projects' ? 'text-white bg-[#1a1a1a]' : 'text-gray-400 hover:text-white'} hover:bg-[#1a1a1a] rounded-lg transition-colors`}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="4" y="4" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+              </svg>
+              <span>Recent Projects</span>
+            </button>
+            <button 
               onClick={() => handleMenuItemClick('dashboard')}
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors"
             >
@@ -2781,10 +2777,13 @@ export default function DemoDash() {
 
               <div className="flex items-center gap-3 px-3 py-3 mt-2 hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer">
                 <div className="w-8 h-8 bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                  A
+                  {(() => {
+                    const displayName = userName || user?.name || user?.email?.split('@')[0] || 'User';
+                    return displayName.charAt(0).toUpperCase();
+                  })()}
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold">Aditya</p>
+                  <p className="text-sm font-semibold">{userName || user?.name || user?.email?.split('@')[0] || 'User'}</p>
                   <p className="text-xs text-gray-500">Pro</p>
                 </div>
                 <button className="text-gray-500 hover:text-gray-300 transition-colors">
@@ -2821,7 +2820,7 @@ export default function DemoDash() {
       {/* Projects Panel */}
       {isProjectsPanelOpen && (
         <div 
-          className="fixed top-0 h-screen w-56 bg-[#111111] backdrop-blur-md border-l border-[#1f1f1f] shadow-2xl transition-all duration-300 ease-in-out"
+          className="fixed top-0 h-screen w-64 bg-[#0f0f0f]/95 backdrop-blur-xl border-l border-[#2a2a2a] shadow-2xl transition-all duration-300 ease-in-out"
           style={{ 
             left: sidebarCollapsed ? '5rem' : '15rem',
             zIndex: 50
@@ -2829,20 +2828,21 @@ export default function DemoDash() {
       >
         <div className="flex flex-col h-full">
           {/* Sub-Sidebar Header */}
-          <div className="flex items-center justify-between px-5 py-6 border-b border-[#1f1f1f]">
-            <h2 className="text-base font-semibold">Projects</h2>
+          <div className="flex items-center justify-between px-6 py-5 border-b border-[#2a2a2a] bg-[#0a0a0a]/50">
+            <h2 className="text-lg font-bold text-white">Projects</h2>
             <button 
               onClick={toggleProjectsPanel}
-              className="p-1 text-gray-400 hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors"
+              className="p-2.5 text-gray-300 hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-all hover:scale-110 active:scale-95"
+              title="Close Projects"
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M10 6L6 10M6 6L10 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                <path d="M10 6L6 10M6 6L10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </button>
           </div>
 
           {/* New Project Button */}
-          <div className="px-4 py-4 border-b border-[#1f1f1f]">
+          <div className="px-5 py-4 border-b border-[#2a2a2a] bg-[#0a0a0a]/30">
             <button 
               onClick={() => {
                 if (!isProjectsPanelOpen) {
@@ -2850,36 +2850,50 @@ export default function DemoDash() {
                 }
                 setShowCreateModal(true);
               }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#4C3BCF] to-[#6B5CE6] hover:from-[#4C3BCF]/90 hover:to-[#6B5CE6]/90 rounded-lg text-white text-sm font-medium transition-all shadow-lg shadow-[#4C3BCF]/20">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#4C3BCF] to-[#6B5CE6] hover:from-[#4C3BCF]/90 hover:to-[#6B5CE6]/90 rounded-xl text-white text-sm font-semibold transition-all shadow-lg shadow-[#4C3BCF]/30 hover:shadow-[#4C3BCF]/50 hover:scale-[1.02] active:scale-[0.98]">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
                 New Project
               </button>
             </div>
 
           {/* Projects List */}
-          <div className="sidebar-scroll flex-1 overflow-y-auto px-4 py-3">
-            <p className="text-xs text-gray-500 px-2 mb-2 uppercase tracking-wide">All Projects</p>
+          <div className="sidebar-scroll flex-1 overflow-y-auto px-5 py-4">
+            <p className="text-xs text-gray-400 px-2 mb-3 uppercase tracking-wider font-semibold">All Projects</p>
             {projects.length === 0 ? (
-              <div className="px-2 py-8 text-center">
-                <p className="text-xs text-gray-500">No projects yet</p>
-                <p className="text-xs text-gray-600 mt-1">Click "New Project" to create one</p>
+              <div className="px-2 py-12 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-[#1a1a1a] rounded-full flex items-center justify-center">
+                  <svg width="24" height="24" viewBox="0 0 16 16" fill="none" className="text-gray-500">
+                    <rect x="3" y="4" width="10" height="9" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M5 4V3C5 2.5 5.5 2 6 2H10C10.5 2 11 2.5 11 3V4" stroke="currentColor" strokeWidth="1.5"/>
+                  </svg>
+                </div>
+                <p className="text-sm text-gray-400 font-medium">No projects yet</p>
+                <p className="text-xs text-gray-500 mt-1">Click "New Project" to create one</p>
                   </div>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {projects.map((project, idx) => (
                   <button 
                     key={project._id || project.id || idx} 
                     onClick={() => selectProject(project)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all group text-left ${selectedProject?._id === project._id || selectedProject?.id === project.id ? 'bg-[#1a1a1a] text-white' : 'hover:bg-[#1a1a1a]'}`}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all group text-left ${
+                      selectedProject?._id === project._id || selectedProject?.id === project.id 
+                        ? 'bg-gradient-to-r from-[#4C3BCF]/20 to-[#6B5CE6]/20 border border-[#4C3BCF]/30 text-white shadow-lg shadow-[#4C3BCF]/10' 
+                        : 'hover:bg-[#1a1a1a]/80 border border-transparent hover:border-[#2a2a2a]'
+                    }`}
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${idx % 3 === 0 ? 'bg-green-400' : idx % 3 === 1 ? 'bg-yellow-400' : 'bg-[#4C3BCF]'}`}></span>
-                      <span className="text-sm text-gray-300 group-hover:text-white transition-colors truncate">{project.name}</span>
+                      <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm ${
+                        idx % 3 === 0 ? 'bg-green-400 shadow-green-400/50' : 
+                        idx % 3 === 1 ? 'bg-yellow-400 shadow-yellow-400/50' : 
+                        'bg-[#4C3BCF] shadow-[#4C3BCF]/50'
+                      }`}></span>
+                      <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors truncate">{project.name}</span>
                     </div>
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="flex-shrink-0 text-gray-600 group-hover:text-gray-400 transition-colors">
-                      <path d="M6 12L10 8L6 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="flex-shrink-0 text-gray-500 group-hover:text-gray-300 transition-colors">
+                      <path d="M6 12L10 8L6 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </button>
                 ))}
@@ -3111,12 +3125,6 @@ export default function DemoDash() {
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] border-2 border-[#0a0a0a] ring-1 ring-white/10 shadow-lg"></div>
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] border-2 border-[#0a0a0a] ring-1 ring-white/10 shadow-lg"></div>
             </div>
-            <button className="flex items-center gap-2 px-3.5 py-2.5 text-sm text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 backdrop-blur-xl border border-white/10 hover:border-white/20 rounded-xl transition-all shadow-lg shadow-black/5">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 3V8M8 8L11 11M8 8L5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-              <span>Invite</span>
-            </button>
           </div>
         </div>
 
@@ -3137,7 +3145,15 @@ export default function DemoDash() {
                 </svg>
                 <span>Import</span>
               </button>
-              <button className="flex items-center gap-2 px-5 py-2.5 text-sm bg-white text-black hover:bg-gray-100 rounded-lg transition-all font-medium shadow-sm">
+              <button 
+                onClick={() => {
+                  if (!isProjectsPanelOpen) {
+                    toggleProjectsPanel();
+                  }
+                  setShowCreateModal(true);
+                }}
+                className="flex items-center gap-2 px-5 py-2.5 text-sm bg-white text-black hover:bg-gray-100 rounded-lg transition-all font-medium shadow-sm"
+              >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
@@ -3213,10 +3229,13 @@ export default function DemoDash() {
 
           {/* Progress & Activity */}
           <div className="grid grid-cols-3 gap-6 mb-8">
-            {/* Progress Report - Circular Chart */}
-            <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all duration-300">
+            {/* Progress Report - Radial Bar Chart */}
+            <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-8 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all duration-300 flex flex-col">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold">Team Performance</h3>
+                <div>
+                  <h3 className="text-xl font-semibold">Team Performance</h3>
+                  <p className="text-sm text-gray-400 mt-1">January - June 2024</p>
+                </div>
                 <button className="flex items-center gap-2 px-3 py-1.5 text-xs bg-[#1a1a1a] hover:bg-[#222222] rounded-lg text-gray-400 transition-colors">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                     <rect x="2" y="3" width="10" height="8" rx="1" stroke="currentColor" strokeWidth="1.2"/>
@@ -3225,227 +3244,71 @@ export default function DemoDash() {
                   <span>This Month</span>
                 </button>
               </div>
-              <div className="relative flex flex-col items-center justify-center py-4">
-                {/* Pie Chart */}
-                <div className="relative w-full max-w-lg h-96 flex items-center justify-center">
-                  <svg className="w-full h-full" viewBox="0 0 400 400" style={{ filter: 'drop-shadow(0 20px 40px rgba(76, 59, 207, 0.4))' }}>
-                    <defs>
-                      {/* Purple Gradient - Completed */}
-                      <linearGradient id="purpleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#4C3BCF" stopOpacity="1" />
-                        <stop offset="50%" stopColor="#6B5CE6" stopOpacity="1" />
-                        <stop offset="100%" stopColor="#8B7AE8" stopOpacity="0.95" />
-                      </linearGradient>
-                      
-                      {/* Blue Gradient - In Progress */}
-                      <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#3B82F6" stopOpacity="1" />
-                        <stop offset="50%" stopColor="#60A5FA" stopOpacity="1" />
-                        <stop offset="100%" stopColor="#93C5FD" stopOpacity="0.95" />
-                      </linearGradient>
-                      
-                      {/* Green Gradient - Pending */}
-                      <linearGradient id="greenGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#10B981" stopOpacity="1" />
-                        <stop offset="50%" stopColor="#34D399" stopOpacity="1" />
-                        <stop offset="100%" stopColor="#6EE7B7" stopOpacity="0.95" />
-                      </linearGradient>
-                      
-                      {/* Shadow filter */}
-                      <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-                        <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
-                        <feOffset dx="0" dy="6" result="offsetblur"/>
-                        <feComponentTransfer>
-                          <feFuncA type="linear" slope="0.4"/>
-                        </feComponentTransfer>
-                        <feMerge>
-                          <feMergeNode/>
-                          <feMergeNode in="SourceGraphic"/>
-                        </feMerge>
-                      </filter>
-                      
-                      {/* Glow effect */}
-                      <filter id="glow">
-                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                        <feMerge>
-                          <feMergeNode in="coloredBlur"/>
-                          <feMergeNode in="SourceGraphic"/>
-                        </feMerge>
-                      </filter>
-                    </defs>
-                    
-                    {/* Pie Chart Slices - Starting from top (12 o'clock) */}
-                    {/* Completed */}
-                    {(() => {
-                      const completedPercent = pieChartData.completed;
-                      const completedDegrees = (completedPercent / 100) * 360;
-                      const completedRad = (completedDegrees * Math.PI) / 180;
-                      const endX = 200 + 150 * Math.sin(completedRad);
-                      const endY = 200 - 150 * Math.cos(completedRad);
-                      const largeArc = completedPercent > 50 ? 1 : 0;
-                      return (
-                        <path
-                          d={`M 200 50 A 150 150 0 ${largeArc} 1 ${endX} ${endY} L 200 200 Z`}
-                          fill="url(#purpleGradient)"
-                          filter="url(#shadow)"
-                          className="hover:opacity-90 transition-all duration-300 cursor-pointer"
-                          style={{ transformOrigin: '200px 200px' }}
-                        />
-                      );
-                    })()}
-                    
-                    {/* In Progress */}
-                    {(() => {
-                      const completedPercent = pieChartData.completed;
-                      const inProgressPercent = pieChartData.inProgress;
-                      const startDegrees = (completedPercent / 100) * 360;
-                      const endDegrees = ((completedPercent + inProgressPercent) / 100) * 360;
-                      const startRad = (startDegrees * Math.PI) / 180;
-                      const endRad = (endDegrees * Math.PI) / 180;
-                      const startX = 200 + 150 * Math.sin(startRad);
-                      const startY = 200 - 150 * Math.cos(startRad);
-                      const endX = 200 + 150 * Math.sin(endRad);
-                      const endY = 200 - 150 * Math.cos(endRad);
-                      const largeArc = inProgressPercent > 50 ? 1 : 0;
-                      return (
-                        <path
-                          d={`M ${startX} ${startY} A 150 150 0 ${largeArc} 1 ${endX} ${endY} L 200 200 Z`}
-                          fill="url(#blueGradient)"
-                          filter="url(#shadow)"
-                          className="hover:opacity-90 transition-all duration-300 cursor-pointer"
-                          style={{ transformOrigin: '200px 200px' }}
-                        />
-                      );
-                    })()}
-                    
-                    {/* Pending */}
-                    {(() => {
-                      const completedPercent = pieChartData.completed;
-                      const inProgressPercent = pieChartData.inProgress;
-                      const startDegrees = ((completedPercent + inProgressPercent) / 100) * 360;
-                      const startRad = (startDegrees * Math.PI) / 180;
-                      const startX = 200 + 150 * Math.sin(startRad);
-                      const startY = 200 - 150 * Math.cos(startRad);
-                      return (
-                        <path
-                          d={`M ${startX} ${startY} A 150 150 0 0 1 200 50 L 200 200 Z`}
-                          fill="url(#greenGradient)"
-                          filter="url(#shadow)"
-                          className="hover:opacity-90 transition-all duration-300 cursor-pointer"
-                          style={{ transformOrigin: '200px 200px' }}
-                        />
-                      );
-                    })()}
-                    
-                    {/* Inner circle for donut effect */}
-                    <circle
-                      cx="200"
-                      cy="200"
-                      r="80"
-                      fill="#0a0a0a"
-                      opacity="0.98"
-                    />
-                    
-                    {/* Center text with glow effect */}
-                    <text
-                      x="200"
-                      y="185"
-                      textAnchor="middle"
-                      fill="white"
-                      fontSize="56"
-                      fontWeight="900"
-                      fontFamily="system-ui, -apple-system"
-                      filter="url(#glow)"
-                      style={{ textShadow: '0 0 20px rgba(76, 59, 207, 0.5)' }}
-                    >
-                      {pieChartData.completed}%
-                    </text>
-                    <text
-                      x="200"
-                      y="215"
-                      textAnchor="middle"
-                      fill="#999"
-                      fontSize="16"
-                      fontWeight="600"
-                      fontFamily="system-ui, -apple-system"
-                      letterSpacing="1px"
-                    >
-                      Completed
-                    </text>
-                    
-                    {/* Percentage labels on slices with better positioning */}
-                    {pieChartData.completed > 5 && (
-                      <text
-                        x="200"
-                        y="120"
-                        textAnchor="middle"
-                        fill="white"
-                        fontSize="20"
-                        fontWeight="800"
-                        fontFamily="system-ui"
-                        filter="url(#glow)"
-                        style={{ textShadow: '0 2px 8px rgba(0, 0, 0, 0.5)' }}
-                      >
-                        {pieChartData.completed}%
-                      </text>
-                    )}
-                    {pieChartData.inProgress > 5 && (
-                      <text
-                        x="125"
-                        y="280"
-                        textAnchor="middle"
-                        fill="white"
-                        fontSize="18"
-                        fontWeight="800"
-                        fontFamily="system-ui"
-                        filter="url(#glow)"
-                        style={{ textShadow: '0 2px 8px rgba(0, 0, 0, 0.5)' }}
-                      >
-                        {pieChartData.inProgress}%
-                      </text>
-                    )}
-                    {pieChartData.pending > 5 && (
-                      <text
-                        x="125"
-                        y="180"
-                        textAnchor="middle"
-                        fill="white"
-                        fontSize="16"
-                        fontWeight="800"
-                        fontFamily="system-ui"
-                        filter="url(#glow)"
-                        style={{ textShadow: '0 2px 8px rgba(0, 0, 0, 0.5)' }}
-                      >
-                        {pieChartData.pending}%
-                      </text>
-                    )}
-                  </svg>
-                </div>
+              <div className="flex-1 flex flex-col items-center justify-center pb-0 min-h-[400px]">
+                {/* Radial Bar Chart using recharts */}
+                {(() => {
+                  // Prepare chart data from pieChartData
+                  const chartData = [
+                    { 
+                      name: 'completed', 
+                      value: pieChartData.completed, 
+                      fill: '#4C3BCF' 
+                    },
+                    { 
+                      name: 'in progress', 
+                      value: pieChartData.inProgress, 
+                      fill: '#3B82F6' 
+                    },
+                    { 
+                      name: 'pending', 
+                      value: pieChartData.pending, 
+                      fill: '#10B981' 
+                    }
+                  ];
+
+                  return (
+                    <div className="w-full h-full max-w-[450px] max-h-[450px] aspect-square flex items-center justify-center mx-auto">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RadialBarChart
+                          data={chartData}
+                          startAngle={-90}
+                          endAngle={380}
+                          innerRadius={40}
+                          outerRadius={140}
+                        >
+                          <RadialBar 
+                            dataKey="value" 
+                            background={{ fill: 'rgba(255, 255, 255, 0.08)' }}
+                            cornerRadius={6}
+                            stroke="#1f1f1f"
+                            strokeWidth={1}
+                          >
+                            <LabelList
+                              position="insideStart"
+                              dataKey="name"
+                              className="fill-white capitalize"
+                              style={{
+                                mixBlendMode: 'luminosity',
+                                textShadow: '0 2px 4px rgba(0, 0, 0, 0.9)',
+                                fontSize: '13px',
+                                fontWeight: '600'
+                              }}
+                            />
+                          </RadialBar>
+                        </RadialBarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  );
+                })()}
                 
-                {/* Enhanced Legend */}
-                <div className="w-full mt-6 grid grid-cols-3 gap-4 px-2">
-                  <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-[#4C3BCF]/10 border border-[#4C3BCF]/20 hover:bg-[#4C3BCF]/15 transition-all group cursor-pointer">
-                    <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] shadow-lg shadow-[#4C3BCF]/30 group-hover:scale-110 transition-transform"></div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-white">{pieChartData.completed}%</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Completed</div>
-                    </div>
+                {/* Footer */}
+                <div className="w-full mt-8 flex flex-col gap-2 text-sm px-2">
+                  <div className="flex items-center gap-2 leading-none font-medium text-gray-300">
+                    <TrendingUp className="h-4 w-4 text-green-400" />
+                    Trending up by 5.2% this month
                   </div>
-                  
-                  <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-[#3B82F6]/10 border border-[#3B82F6]/20 hover:bg-[#3B82F6]/15 transition-all group cursor-pointer">
-                    <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#3B82F6] to-[#60A5FA] shadow-lg shadow-[#3B82F6]/30 group-hover:scale-110 transition-transform"></div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-white">{pieChartData.inProgress}%</div>
-                      <div className="text-xs text-gray-400 mt-0.5">In Progress</div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-[#10B981]/10 border border-[#10B981]/20 hover:bg-[#10B981]/15 transition-all group cursor-pointer">
-                    <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#10B981] to-[#34D399] shadow-lg shadow-[#10B981]/30 group-hover:scale-110 transition-transform"></div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-white">{pieChartData.pending}%</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Pending</div>
-                    </div>
+                  <div className="text-xs text-gray-400 leading-none">
+                    Showing total tasks for the last 6 months
                   </div>
                 </div>
               </div>
@@ -4027,6 +3890,121 @@ export default function DemoDash() {
           ) : activePage === 'teams' ? (
             /* Teams Page */
             <TeamsPage user={user} />
+          ) : activePage === 'recent-projects' ? (
+            /* Recent Projects Page */
+            <div className="space-y-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold mb-2">Recent Projects</h2>
+                  <p className="text-gray-400 text-sm">Latest two projects with details</p>
+                </div>
+              </div>
+
+              {(() => {
+                // Get latest 2 projects sorted by created_at
+                const sortedProjects = [...projects].sort((a, b) => {
+                  const dateA = new Date(a.created_at || a.createdAt || 0);
+                  const dateB = new Date(b.created_at || b.createdAt || 0);
+                  return dateB - dateA; // Most recent first
+                });
+                const recentProjects = sortedProjects.slice(0, 2);
+
+                if (recentProjects.length === 0) {
+                  return (
+                    <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-12 text-center">
+                      <p className="text-gray-400 mb-4">No projects found</p>
+                      <p className="text-gray-500 text-sm">Create a project to see it here</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {recentProjects.map((project, index) => {
+                      const createdDate = project.created_at || project.createdAt;
+                      const formattedDate = createdDate 
+                        ? new Date(createdDate).toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          })
+                        : 'Date not available';
+
+                      return (
+                        <div
+                          key={project._id || project.id || index}
+                          className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all cursor-pointer"
+                          onClick={() => {
+                            selectProject(project);
+                            setActivePage('projects');
+                            toggleProjectsPanel();
+                          }}
+                        >
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-3 h-3 rounded-full ${index === 0 ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
+                              <h3 className="text-xl font-bold text-white">{project.name}</h3>
+                            </div>
+                            <span className="text-xs text-gray-500 bg-[#1a1a1a] px-2 py-1 rounded">
+                              #{index + 1}
+                            </span>
+                          </div>
+
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">Project ID</p>
+                              <p className="text-sm text-gray-300 font-mono">{project._id || project.id || 'N/A'}</p>
+                            </div>
+
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">Created At</p>
+                              <p className="text-sm text-gray-300">{formattedDate}</p>
+                            </div>
+
+                            {project.description && (
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1">Description</p>
+                                <p className="text-sm text-gray-300 line-clamp-2">{project.description}</p>
+                              </div>
+                            )}
+
+                            {project.status && (
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1">Status</p>
+                                <span className={`inline-block px-2 py-1 rounded text-xs ${
+                                  project.status === 'active' ? 'bg-green-500/20 text-green-400' :
+                                  project.status === 'completed' ? 'bg-blue-500/20 text-blue-400' :
+                                  project.status === 'on-hold' ? 'bg-yellow-500/20 text-yellow-400' :
+                                  'bg-gray-500/20 text-gray-400'
+                                }`}>
+                                  {project.status}
+                                </span>
+                              </div>
+                            )}
+
+                            {project.team_members && project.team_members.length > 0 && (
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1">Team Members</p>
+                                <p className="text-sm text-gray-300">{project.team_members.length} member(s)</p>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-4 pt-4 border-t border-[#1f1f1f]">
+                            <button className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#1a1a1a] hover:bg-[#222222] border border-[#2a2a2a] rounded-lg text-sm text-gray-300 hover:text-white transition-all">
+                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                                <path d="M6 12L10 8L6 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                              Open Project
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
           ) : activePage === 'issue-resolution' ? (
             /* Issue Resolution Page */
             <div className="max-w-4xl mx-auto">

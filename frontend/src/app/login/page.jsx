@@ -27,7 +27,7 @@ function LoginForm() {
 
     try {
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
-      const response = await fetch(`https://localhost:5000${endpoint}`, {
+      const response = await fetch(`http://localhost:5000${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -44,10 +44,10 @@ function LoginForm() {
 
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-      window.location.href = '/test';
+      window.location.href = '/demodash';
     } catch (err) {
       console.error('Login error:', err);
-      setError(`Connection error: ${err.message}. Make sure backend is running on https://localhost:5000 and you've accepted the SSL certificate`);
+      setError(`Connection error: ${err.message}. Make sure backend is running on http://localhost:5000`);
       setLoading(false);
     }
   };

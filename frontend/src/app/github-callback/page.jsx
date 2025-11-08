@@ -11,7 +11,7 @@ function CallbackContent() {
   useEffect(() => {
     const code = searchParams.get('code');
     if (code) {
-      window.location.href = `https://localhost:5000/github/callback?code=${code}`;
+      window.location.href = `http://localhost:5000/github/callback?code=${code}`;
     }
   }, [searchParams, router]);
 
