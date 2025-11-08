@@ -3,6 +3,607 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
+// Tasks Page Component
+function TasksPage({ user }) {
+  console.log('🎯 TasksPage component rendered!', { user: user?.email || 'No user' });
+  
+  const [allTasks, setAllTasks] = useState([]);
+  const [filteredTasks, setFilteredTasks] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Filters
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [projectFilter, setProjectFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Apply filters function
+  const applyFilters = () => {
+    console.log('🔍 Applying filters...', {
+      allTasksCount: allTasks.length,
+      statusFilter,
+      projectFilter,
+      priorityFilter,
+      searchQuery
+    });
+    
+    // Start with all tasks
+    let filtered = [...allTasks];
+    const initialCount = filtered.length;
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      const before = filtered.length;
+      filtered = filtered.filter(task => {
+        const taskStatus = task.status || '';
+        return taskStatus === statusFilter;
+      });
+      console.log(`Status filter (${statusFilter}): ${before} → ${filtered.length}`);
+    }
+
+    // Project filter
+    if (projectFilter !== 'all') {
+      const before = filtered.length;
+      filtered = filtered.filter(task => {
+        const projectId = String(task.project_id || task.project?.id || '');
+        const filterId = String(projectFilter);
+        const matches = projectId === filterId;
+        return matches;
+      });
+      console.log(`Project filter (${projectFilter}): ${before} → ${filtered.length}`);
+    }
+
+    // Priority filter
+    if (priorityFilter !== 'all') {
+      const before = filtered.length;
+      filtered = filtered.filter(task => {
+        const priority = (task.priority || '').toLowerCase();
+        if (priorityFilter === 'critical') {
+          return priority === 'critical' || priority === 'high';
+        } else if (priorityFilter === 'medium') {
+          return priority === 'medium';
+        } else if (priorityFilter === 'easy') {
+          return priority === 'easy' || priority === 'low';
+        }
+        return false;
+      });
+      console.log(`Priority filter (${priorityFilter}): ${before} → ${filtered.length}`);
+    }
+
+    // Search by person name
+    if (searchQuery.trim()) {
+      const before = filtered.length;
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(task => {
+        const assignedTo = (task.assigned_to || '').toLowerCase();
+        return assignedTo.includes(query);
+      });
+      console.log(`Search filter (${searchQuery}): ${before} → ${filtered.length}`);
+    }
+
+    console.log(`✅ Filtered tasks: ${initialCount} → ${filtered.length}`);
+    setFilteredTasks(filtered);
+  };
+
+  // Load data on mount and when component becomes visible
+  useEffect(() => {
+    console.log('🚀 TasksPage useEffect triggered - Loading tasks and projects');
+    console.log('📍 Current state:', {
+      allTasks: allTasks.length,
+      filteredTasks: filteredTasks.length,
+      isLoading,
+      hasUser: !!user
+    });
+    
+    // Always reload tasks when component mounts or becomes visible
+    loadTasks();
+    loadProjects();
+  }, []);
+
+  // Also reload tasks when user changes (in case of login/logout)
+  useEffect(() => {
+    if (user) {
+      console.log('👤 User detected, reloading tasks');
+      loadTasks();
+      loadProjects();
+    }
+  }, [user]);
+
+  const loadProjects = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const response = await fetch('https://localhost:5000/api/projects', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setProjects(data.projects || []);
+      } else {
+        console.error('Failed to load projects:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('Error loading projects:', error);
+    }
+  };
+
+  const loadTasks = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('❌ No token found in localStorage');
+      setIsLoading(false);
+      return;
+    }
+
+    console.log('🔑 Token found, length:', token.length);
+    setIsLoading(true);
+    
+    try {
+      console.log('📡 Fetching tasks from API: https://localhost:5000/api/tasks');
+      
+      const response = await fetch('https://localhost:5000/api/tasks', {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('📥 Response status:', response.status, response.statusText);
+      console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      // Get response text first to see what we're dealing with
+      const responseText = await response.text();
+      console.log('📦 Raw response text:', responseText.substring(0, 500));
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('📦 Parsed JSON response:', data);
+      } catch (parseError) {
+        console.error('❌ Failed to parse JSON:', parseError);
+        console.error('❌ Response text:', responseText);
+        setAllTasks([]);
+        setFilteredTasks([]);
+        setIsLoading(false);
+        return;
+      }
+      
+      if (response.ok) {
+        // Handle different response formats
+        let tasks = [];
+        if (Array.isArray(data)) {
+          tasks = data;
+          console.log('✅ Response is direct array');
+        } else if (data.tasks && Array.isArray(data.tasks)) {
+          tasks = data.tasks;
+          console.log('✅ Response has tasks array');
+        } else if (data.data && Array.isArray(data.data)) {
+          tasks = data.data;
+          console.log('✅ Response has data array');
+        } else {
+          console.warn('⚠️ Unexpected response format:', data);
+          console.warn('⚠️ Response keys:', Object.keys(data));
+          tasks = [];
+        }
+        
+        console.log('✅ Tasks loaded:', tasks.length, 'tasks');
+        if (tasks.length > 0) {
+          console.log('📋 Sample task:', JSON.stringify(tasks[0], null, 2));
+          console.log('📋 All task IDs:', tasks.map(t => t.id || t._id));
+        } else {
+          console.log('ℹ️ No tasks found in response');
+          console.log('ℹ️ This could mean:');
+          console.log('   1. No tasks have been created yet in any project');
+          console.log('   2. Tasks exist but are not associated with your projects');
+          console.log('   3. There is a project_id mismatch issue');
+        }
+        
+        setAllTasks(tasks);
+        // Immediately set filtered tasks to all tasks (no filters applied yet)
+        setFilteredTasks(tasks);
+        
+        // Show alert if no tasks found (for debugging)
+        if (tasks.length === 0) {
+          console.warn('⚠️ WARNING: No tasks returned from API. Check if tasks exist in database.');
+        }
+      } else {
+        console.error('❌ API returned error:', response.status);
+        console.error('❌ Error data:', data);
+        console.error('❌ Full response text:', responseText);
+        setAllTasks([]);
+        setFilteredTasks([]);
+        
+        // Show user-friendly error
+        if (response.status === 401) {
+          console.error('❌ Authentication failed - token may be expired');
+        } else if (response.status === 500) {
+          console.error('❌ Server error - check backend logs');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Network/Request error:', error);
+      console.error('❌ Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      setAllTasks([]);
+      setFilteredTasks([]);
+    } finally {
+      setIsLoading(false);
+      console.log('✅ Loading complete');
+    }
+  };
+
+  // Apply filters whenever filters or tasks change
+  useEffect(() => {
+    console.log('🔄 Filter effect triggered', {
+      allTasksLength: allTasks.length,
+      statusFilter,
+      projectFilter,
+      priorityFilter,
+      searchQuery
+    });
+    
+    // Always apply filters, even if allTasks is empty (to set filteredTasks to empty)
+    applyFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allTasks, statusFilter, projectFilter, priorityFilter, searchQuery]);
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'pending_approval':
+        return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+      case 'approved':
+        return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      case 'completed':
+        return 'bg-green-500/20 text-green-400 border-green-500/30';
+      default:
+        return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    const priorityLower = priority?.toLowerCase();
+    if (priorityLower === 'high' || priorityLower === 'critical') {
+      return 'bg-red-500/20 text-red-400';
+    } else if (priorityLower === 'medium') {
+      return 'bg-yellow-500/20 text-yellow-400';
+    } else if (priorityLower === 'low' || priorityLower === 'easy') {
+      return 'bg-green-500/20 text-green-400';
+    }
+    return 'bg-gray-500/20 text-gray-400';
+  };
+
+  const getPriorityLabel = (priority) => {
+    const priorityLower = priority?.toLowerCase();
+    if (priorityLower === 'high' || priorityLower === 'critical') {
+      return 'Critical';
+    } else if (priorityLower === 'medium') {
+      return 'Medium';
+    } else if (priorityLower === 'low' || priorityLower === 'easy') {
+      return 'Easy';
+    }
+    return priority || 'Unknown';
+  };
+
+  console.log('📊 TasksPage render summary:', {
+    allTasksCount: allTasks.length,
+    filteredTasksCount: filteredTasks.length,
+    isLoading,
+    projectsCount: projects.length,
+    filters: { statusFilter, projectFilter, priorityFilter, searchQuery }
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold mb-2">All Tasks</h2>
+          <p className="text-gray-400 text-sm">View and manage tasks across all projects</p>
+          <div className="mt-2 flex items-center gap-4 text-xs">
+            <span className={`px-2 py-1 rounded ${isLoading ? 'bg-yellow-500/20 text-yellow-400' : allTasks.length > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+              {isLoading ? '⏳ Loading tasks...' : allTasks.length === 0 ? '❌ No tasks in database' : `✅ ${filteredTasks.length} of ${allTasks.length} tasks`}
+            </span>
+            {projects.length > 0 && (
+              <span className="text-gray-500">
+                {projects.length} project{projects.length !== 1 ? 's' : ''} found
+              </span>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            console.log('🔄 Manual refresh button clicked');
+            setIsLoading(true);
+            loadTasks();
+            loadProjects();
+          }}
+          className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-all text-sm font-medium flex items-center gap-2"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M8 3V1M8 15V13M3 8H1M15 8H13M12.364 3.636L13.778 2.222M2.222 13.778L3.636 12.364M12.364 12.364L13.778 13.778M2.222 2.222L3.636 3.636" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M8 12A4 4 0 108 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          Refresh
+        </button>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Search by Person Name */}
+          <div className="relative">
+            <label className="block text-xs text-gray-400 mb-2">Search by Person</label>
+            <div className="relative">
+              <svg 
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" 
+                viewBox="0 0 16 16" 
+                fill="none"
+              >
+                <circle cx="7" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M10 10L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <input
+                type="text"
+                placeholder="Search by name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-[#3a3a3a] transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Project Filter */}
+          <div>
+            <label className="block text-xs text-gray-400 mb-2">Filter by Project</label>
+            <select
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
+              className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white text-sm focus:outline-none focus:border-[#3a3a3a] transition-colors"
+            >
+              <option value="all">All Projects</option>
+              {projects.map((project) => (
+                <option key={project._id || project.id} value={project._id || project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Priority Filter */}
+          <div>
+            <label className="block text-xs text-gray-400 mb-2">Filter by Priority</label>
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white text-sm focus:outline-none focus:border-[#3a3a3a] transition-colors"
+            >
+              <option value="all">All Priorities</option>
+              <option value="critical">Critical</option>
+              <option value="medium">Medium</option>
+              <option value="easy">Easy</option>
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div>
+            <label className="block text-xs text-gray-400 mb-2">Filter by Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white text-sm focus:outline-none focus:border-[#3a3a3a] transition-colors"
+            >
+              <option value="all">All Status</option>
+              <option value="pending_approval">Pending Approval</option>
+              <option value="approved">Approved</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Active Filters Summary */}
+        {(searchQuery || projectFilter !== 'all' || priorityFilter !== 'all' || statusFilter !== 'all') && (
+          <div className="mt-4 pt-4 border-t border-[#1f1f1f] flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-400">Active filters:</span>
+            {searchQuery && (
+              <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-lg border border-blue-500/30">
+                Person: {searchQuery}
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="ml-2 hover:text-blue-300"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {projectFilter !== 'all' && (
+              <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-lg border border-purple-500/30">
+                Project: {projects.find(p => (p._id || p.id) === projectFilter)?.name || 'Unknown'}
+                <button
+                  onClick={() => setProjectFilter('all')}
+                  className="ml-2 hover:text-purple-300"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {priorityFilter !== 'all' && (
+              <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-lg border border-yellow-500/30">
+                Priority: {priorityFilter}
+                <button
+                  onClick={() => setPriorityFilter('all')}
+                  className="ml-2 hover:text-yellow-300"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {statusFilter !== 'all' && (
+              <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-lg border border-green-500/30">
+                Status: {statusFilter.replace('_', ' ')}
+                <button
+                  onClick={() => setStatusFilter('all')}
+                  className="ml-2 hover:text-green-300"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setProjectFilter('all');
+                setPriorityFilter('all');
+                setStatusFilter('all');
+              }}
+              className="px-2 py-1 bg-gray-500/20 text-gray-400 text-xs rounded-lg border border-gray-500/30 hover:bg-gray-500/30 transition-colors"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Tasks List */}
+      {isLoading ? (
+        <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-12 text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
+          <p className="text-gray-400">Loading tasks...</p>
+        </div>
+      ) : filteredTasks.length === 0 ? (
+        <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-12 text-center">
+          <p className="text-gray-400 mb-4">No tasks found</p>
+          <p className="text-gray-500 text-sm mb-4">
+            {allTasks.length === 0 
+              ? 'Tasks will appear here once they are created in projects. Create tasks in the Projects section by chatting with AI.'
+              : 'No tasks match your current filters. Try adjusting your search or filters.'}
+          </p>
+          {allTasks.length > 0 && (
+            <p className="text-gray-500 text-xs mt-2 mb-4">
+              You have {allTasks.length} task(s) but they don't match your filters.
+            </p>
+          )}
+          <button
+            onClick={() => {
+              console.log('🔄 Refresh button clicked');
+              loadTasks();
+            }}
+            className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-all text-sm font-medium"
+          >
+            Refresh Tasks
+          </button>
+          <p className="text-gray-500 text-xs mt-4">
+            Check the browser console (F12) for detailed logs about task loading.
+          </p>
+        </div>
+      ) : null}
+
+      {!isLoading && filteredTasks.length > 0 && (
+        <>
+          <div className="mb-4">
+            <div className="text-sm text-gray-400">
+              Showing {filteredTasks.length} of {allTasks.length} tasks
+            </div>
+          </div>
+        <div className="grid grid-cols-1 gap-4">
+          {filteredTasks.map((task) => (
+            <div
+              key={task.id || task._id}
+              className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="text-lg font-semibold">{task.title || task.task}</h3>
+                    <span className={`px-2 py-1 text-xs rounded-lg border ${getStatusColor(task.status)}`}>
+                      {task.status?.replace('_', ' ') || 'Unknown'}
+                    </span>
+                    {task.priority && (
+                      <span className={`px-2 py-1 text-xs rounded-lg ${getPriorityColor(task.priority)}`}>
+                        {getPriorityLabel(task.priority)}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Project Name */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-gray-500">
+                      <rect x="3" y="4" width="10" height="9" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+                      <path d="M5 4V3C5 2.5 5.5 2 6 2H10C10.5 2 11 2.5 11 3V4" stroke="currentColor" strokeWidth="1.5"/>
+                    </svg>
+                    <span className="text-sm text-blue-400 font-medium">
+                      {task.project_name || task.project?.name || 'Unknown Project'}
+                    </span>
+                  </div>
+
+                  {task.description && (
+                    <p className="text-sm text-gray-400 mb-4">{task.description}</p>
+                  )}
+
+                  {/* Task Details */}
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
+                    {task.assigned_to && task.assigned_to !== 'Unassigned' && (
+                      <div className="flex items-center gap-1">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                          <circle cx="8" cy="6" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
+                          <path d="M3 13C3 11 5 9.5 8 9.5C11 9.5 13 11 13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                        <span className="text-purple-400">{task.assigned_to}</span>
+                      </div>
+                    )}
+                    {task.role && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-blue-400">Role: {task.role}</span>
+                      </div>
+                    )}
+                    {task.deadline && (
+                      <div className="flex items-center gap-1">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                          <rect x="3" y="3" width="10" height="10" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+                          <path d="M5 1V3M11 1V3M3 6H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                        <span className="text-orange-400">
+                          {new Date(task.deadline).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                    {task.timeline && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-blue-400">⏱️ {task.timeline}</span>
+                      </div>
+                    )}
+                    {task.estimated_hours && (
+                      <div className="flex items-center gap-1">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                          <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
+                          <path d="M8 4V8L11 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                        <span className="text-yellow-400">{task.estimated_hours} hours</span>
+                      </div>
+                    )}
+                    {task.created_at && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-500">
+                          Created: {new Date(task.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // Teams Page Component
 function TeamsPage({ user }) {
   const [teamMembers, setTeamMembers] = useState([]);
@@ -1428,6 +2029,14 @@ export default function DemoDash() {
   };
 
   const handleMenuItemClick = (page) => {
+    console.log('🖱️ Menu item clicked:', page);
+    console.log('📍 Before state change:', { 
+      currentActivePage: activePage, 
+      newPage: page,
+      sidebarCollapsed,
+      isProjectsPanelOpen 
+    });
+    
     // When clicking other menu items, expand sidebar and close projects panel
     if (sidebarCollapsed) {
       setSidebarCollapsed(false);
@@ -1436,6 +2045,12 @@ export default function DemoDash() {
       setIsProjectsPanelOpen(false);
     }
     setActivePage(page);
+    
+    console.log('✅ Active page set to:', page);
+    if (page === 'tasks') {
+      console.log('📋 Tasks page selected - TasksPage component should render now');
+      console.log('🔄 Tasks page will reload tasks when component mounts');
+    }
   };
 
   const selectProject = (project) => {
@@ -3401,6 +4016,14 @@ export default function DemoDash() {
                 </>
               )}
             </>
+          ) : activePage === 'tasks' ? (
+            /* Tasks Page */
+            (() => {
+              console.log('🎬 Rendering TasksPage component - activePage is "tasks"');
+              console.log('👤 User object:', user ? { email: user.email, id: user.id } : 'No user');
+              console.log('📋 This component will load ALL tasks from ALL projects');
+              return <TasksPage key="tasks-page" user={user} />;
+            })()
           ) : activePage === 'teams' ? (
             /* Teams Page */
             <TeamsPage user={user} />

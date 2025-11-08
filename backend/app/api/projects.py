@@ -11,7 +11,8 @@ from app.database.mongodb import (
     create_project, get_user_projects, update_project, delete_project,
     save_message, get_project_messages, get_database_stats,
     create_tasks, get_project_tasks, update_task, delete_task,
-    get_weekly_deadlines, get_user_team_members, update_member_workload
+    get_weekly_deadlines, get_user_team_members, update_member_workload,
+    get_all_user_tasks
 )
 from app.services.ai_service import create_deep_project_context
 from app.api.slack import get_token_for_user
@@ -327,6 +328,44 @@ def get_tasks(project_id):
         return jsonify({"error": "Invalid token"}), 401
     except Exception as e:
         logger.error(f"❌ Error fetching tasks: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@project_bp.route("/tasks", methods=["GET"])
+def get_all_tasks():
+    """Get all tasks for the authenticated user across all projects"""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"error": "No authorization provided"}), 401
+    
+    try:
+        # Get user_id from JWT token
+        token = auth_header.replace('Bearer ', '')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload['user_id']
+        
+        status_filter = request.args.get('status')  # Optional status filter
+        
+        logger.info(f"📋 Fetching all tasks for user: {user_id}")
+        
+        tasks = get_all_user_tasks(user_id)
+        
+        # Apply status filter if provided
+        if status_filter:
+            tasks = [task for task in tasks if task.get('status') == status_filter]
+        
+        return jsonify({
+            "ok": True,
+            "tasks": tasks,
+            "count": len(tasks)
+        })
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+    except Exception as e:
+        logger.error(f"❌ Error fetching all tasks: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
