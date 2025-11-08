@@ -1108,7 +1108,7 @@ export default function DashPage() {
                                   <div className="bg-[#343541] rounded-xl p-6 mt-4">
                                     <div className="flex justify-between items-start mb-4">
                                       <div>
-                                        <h3 className="text-lg font-semibold mb-2">{msg.plan.main_task}</h3>
+                                    <h3 className="text-lg font-semibold mb-2">{msg.plan.main_task}</h3>
                                         <p className="text-sm text-gray-400">{msg.plan.goal}</p>
                                       </div>
                                       {msg.plan.subtasks && msg.plan.subtasks.length > 0 && (

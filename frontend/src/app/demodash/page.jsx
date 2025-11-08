@@ -408,7 +408,7 @@ export default function DemoDash() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isProjectsPanelOpen, setIsProjectsPanelOpen] = useState(false);
-  const [activePage, setActivePage] = useState('dashboard'); // dashboard, projects, tasks, analytics, team
+  const [activePage, setActivePage] = useState('dashboard'); // dashboard, projects, tasks, analytics, team, issue-resolution
   
   // Project management
   const [projects, setProjects] = useState([]);
@@ -429,6 +429,45 @@ export default function DemoDash() {
   const [slackChannels, setSlackChannels] = useState([]);
   const [taskAssignments, setTaskAssignments] = useState({}); // {taskId: {assigned_member_name, assigned_member_email}}
   
+  // Issue Resolution state
+  const [issueQuestion, setIssueQuestion] = useState('');
+  const [issueChannel, setIssueChannel] = useState('');
+  const [isAnalyzingIssue, setIsAnalyzingIssue] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshLogs, setRefreshLogs] = useState([]);
+  const [channelMessages, setChannelMessages] = useState([]);
+  const [autoFetchEnabled, setAutoFetchEnabled] = useState(false);
+  const [autoFetchStatus, setAutoFetchStatus] = useState('idle'); // idle, scanning, processing
+  const [lastScanTime, setLastScanTime] = useState(null);
+  const [totalMentionsFound, setTotalMentionsFound] = useState(0);
+  const [totalProcessed, setTotalProcessed] = useState(0);
+  const [processedMentionIds, setProcessedMentionIds] = useState(new Set()); // Track processed mentions by channel+ts
+  const [isFirstFetch, setIsFirstFetch] = useState(true);
+  const processedMentionIdsRef = useRef(new Set()); // Ref to avoid dependency issues
+
+  // Auto-assign best member when tasks are loaded
+  useEffect(() => {
+    if (pendingTasks.length > 0) {
+      setTaskAssignments(prev => {
+        const newAssignments = { ...prev };
+        let hasChanges = false;
+        
+        pendingTasks.forEach(task => {
+          if (task.suggested_members && task.suggested_members.length > 0 && !newAssignments[task.id]) {
+            const bestMember = task.suggested_members[0]; // Highest score
+            newAssignments[task.id] = {
+              assigned_member_name: bestMember.name,
+              assigned_member_email: bestMember.email
+            };
+            hasChanges = true;
+          }
+        });
+        
+        return hasChanges ? newAssignments : prev;
+      });
+    }
+  }, [pendingTasks]);
+  
   // Chat state
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -437,6 +476,13 @@ export default function DemoDash() {
   
   const messagesEndRef = useRef(null);
   const router = useRouter();
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Morning';
+    if (hour < 17) return 'Afternoon';
+    return 'Evening';
+  };
 
   useEffect(() => {
     checkAuth();
@@ -454,6 +500,190 @@ export default function DemoDash() {
       window.history.replaceState({}, '', '/demodash');
     }
   }, []);
+
+  // Load dashboard data
+  useEffect(() => {
+    if (user) {
+      loadDashboardData();
+    }
+  }, [user]);
+
+  const loadDashboardData = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      // Set user name
+      if (user?.name) {
+        setUserName(user.name);
+      } else if (user?.email) {
+        setUserName(user.email.split('@')[0]);
+      }
+
+      // Load projects
+      const projectsRes = await fetch('https://localhost:5000/api/projects', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (projectsRes.ok) {
+        const projectsData = await projectsRes.json();
+        const userProjects = projectsData.projects || [];
+        setDashboardProjects(userProjects.slice(0, 10)); // Show first 10
+        setDashboardStats(prev => ({ ...prev, activeProjects: userProjects.length }));
+        
+        // Load tasks for each project
+        const tasksMap = {};
+        for (const project of userProjects.slice(0, 10)) {
+          const projectId = project._id || project.id;
+          try {
+            const tasksRes = await fetch(`https://localhost:5000/api/projects/${projectId}/tasks`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (tasksRes.ok) {
+              const tasksData = await tasksRes.json();
+              tasksMap[projectId] = tasksData.tasks || [];
+            }
+          } catch (e) {
+            console.error(`Error loading tasks for project ${projectId}:`, e);
+            tasksMap[projectId] = [];
+          }
+        }
+        setProjectTasks(tasksMap);
+      }
+
+      // Load team members
+      const membersRes = await fetch('https://localhost:5000/api/teams/members', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (membersRes.ok) {
+        const membersData = await membersRes.json();
+        const members = membersData.members || [];
+        setDashboardStats(prev => ({ ...prev, members: members.length }));
+      }
+
+      // Load all tasks across all projects to calculate stats
+      const allTasks = [];
+      const projectsRes2 = await fetch('https://localhost:5000/api/projects', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (projectsRes2.ok) {
+        const projectsData2 = await projectsRes2.json();
+        const userProjects2 = projectsData2.projects || [];
+        
+        for (const project of userProjects2) {
+          const projectId = project._id || project.id;
+          try {
+            const tasksRes = await fetch(`https://localhost:5000/api/projects/${projectId}/tasks`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (tasksRes.ok) {
+              const tasksData = await tasksRes.json();
+              allTasks.push(...(tasksData.tasks || []));
+            }
+          } catch (e) {
+            console.error(`Error loading tasks for project ${projectId}:`, e);
+          }
+        }
+
+        // Calculate task statistics
+        const completedTasks = allTasks.filter(t => t.status === 'completed' || t.status === 'done' || t.status === 'sent_to_slack').length;
+        const inProgressTasks = allTasks.filter(t => t.status === 'in_progress' || t.status === 'approved').length;
+        const pendingTasks = allTasks.filter(t => t.status === 'pending' || t.status === 'pending_approval').length;
+        const priorityTasks = allTasks.filter(t => t.priority === 'high' || t.priority === 'urgent').length;
+
+        const totalTasks = allTasks.length;
+        const completedPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        const inProgressPercent = totalTasks > 0 ? Math.round((inProgressTasks / totalTasks) * 100) : 0;
+        const pendingPercent = totalTasks > 0 ? Math.round((pendingTasks / totalTasks) * 100) : 0;
+
+        setDashboardStats(prev => ({
+          ...prev,
+          priorityTasks: priorityTasks,
+          tasksCompleted: completedTasks
+        }));
+
+        setPieChartData({
+          completed: completedPercent,
+          inProgress: inProgressPercent,
+          pending: pendingPercent
+        });
+
+        // Generate activities from recent completed tasks (for Recent Activity section)
+        const recentTasks = allTasks
+          .filter(t => t.status === 'completed' || t.status === 'done')
+          .sort((a, b) => {
+            const dateA = new Date(a.updated_at || a.created_at || 0);
+            const dateB = new Date(b.updated_at || b.created_at || 0);
+            return dateB - dateA;
+          })
+          .slice(0, 5);
+
+        const activities = recentTasks.map(task => {
+          const date = new Date(task.updated_at || task.created_at || Date.now());
+          const now = new Date();
+          const diffMs = now - date;
+          const diffMins = Math.floor(diffMs / 60000);
+          const diffHours = Math.floor(diffMs / 3600000);
+          const diffDays = Math.floor(diffMs / 86400000);
+
+          let timeStr = 'Just now';
+          if (diffMins < 1) timeStr = 'Just now';
+          else if (diffMins < 60) timeStr = `${diffMins}m ago`;
+          else if (diffHours < 24) timeStr = `${diffHours}h ago`;
+          else if (diffDays < 7) timeStr = `${diffDays}d ago`;
+          else timeStr = date.toLocaleDateString();
+
+          return {
+            time: timeStr,
+            user: task.assigned_to || 'Team',
+            action: task.title || 'Completed task'
+          };
+        });
+
+        setDashboardActivities(activities);
+
+        // Generate pending tasks for "Past Team Work" section
+        const pendingTasksForDisplay = allTasks
+          .filter(t => t.status === 'pending' || t.status === 'pending_approval')
+          .sort((a, b) => {
+            const dateA = new Date(a.created_at || a.updated_at || 0);
+            const dateB = new Date(b.created_at || b.updated_at || 0);
+            return dateB - dateA;
+          })
+          .slice(0, 10);
+
+        const pendingActivities = pendingTasksForDisplay.map(task => {
+          const date = new Date(task.created_at || task.updated_at || Date.now());
+          const now = new Date();
+          const diffMs = now - date;
+          const diffMins = Math.floor(diffMs / 60000);
+          const diffHours = Math.floor(diffMs / 3600000);
+          const diffDays = Math.floor(diffMs / 86400000);
+
+          let timeStr = 'Just now';
+          if (diffMins < 1) timeStr = 'Just now';
+          else if (diffMins < 60) timeStr = `${diffMins}m ago`;
+          else if (diffHours < 24) timeStr = `${diffHours}h ago`;
+          else if (diffDays < 7) timeStr = `${diffDays}d ago`;
+          else timeStr = date.toLocaleDateString();
+
+          return {
+            id: task._id || task.id,
+            time: timeStr,
+            user: task.assigned_to || 'Unassigned',
+            action: task.title || 'Untitled task',
+            description: task.description || '',
+            status: task.status || 'pending',
+            priority: task.priority || 'medium',
+            project: task.project_name || 'Unknown Project'
+          };
+        });
+
+        setPendingTasksForDisplay(pendingActivities);
+      }
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    }
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -608,56 +838,471 @@ export default function DemoDash() {
     });
   };
 
-  const showPendingTasksApproval = async (projectId) => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    try {
-      // Fetch pending tasks with suggestions
-      const tasksRes = await fetch(`https://localhost:5000/api/projects/${projectId}/tasks/pending-approval`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (tasksRes.ok) {
-        const tasksData = await tasksRes.json();
-        setPendingTasks(tasksData.tasks || []);
+  // Load Slack channels for issue resolution
+  useEffect(() => {
+    if (activePage === 'issue-resolution' && slackConnected) {
+      const loadChannels = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
         
-        // Fetch Slack channels
-        const channelsRes = await fetch('https://localhost:5000/api/slack/channels', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (channelsRes.ok) {
-          const channelsData = await channelsRes.json();
-          setSlackChannels(channelsData.channels || []);
+        try {
+          const channelsRes = await fetch('https://localhost:5000/slack/api/list_conversations', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (channelsRes.ok) {
+            const channelsData = await channelsRes.json();
+            setSlackChannels(channelsData.channels || []);
+          }
+        } catch (error) {
+          console.error('Failed to load Slack channels:', error);
         }
-        
-        setShowApprovalModal(true);
-      } else {
-        alert('Failed to load pending tasks');
-      }
-    } catch (error) {
-      console.error('Error loading pending tasks:', error);
-      alert('Error loading pending tasks');
+      };
+      loadChannels();
     }
-  };
+  }, [activePage, slackConnected]);
 
-  const handleApproveTasks = async () => {
-    if (!selectedProject) return;
-    
-    const taskIds = pendingTasks.map(t => t.id).filter(id => id);
-    if (taskIds.length === 0) {
-      alert('No tasks to approve');
+  // Auto-fetch mentions from all channels: once immediately, then every minute
+  useEffect(() => {
+    if (!autoFetchEnabled || !slackConnected || activePage !== 'issue-resolution') {
+      setIsFirstFetch(true);
+      // Reset processed mentions when auto-fetch is disabled
+      if (!autoFetchEnabled) {
+        processedMentionIdsRef.current = new Set();
+        setProcessedMentionIds(new Set());
+      }
       return;
     }
 
-    if (!selectedChannel && slackConnected) {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    let intervalId;
+    let timeoutId;
+    let isProcessing = false;
+
+    const autoFetchMentions = async () => {
+      // Skip if already processing
+      if (isProcessing) {
+        return;
+      }
+
+      isProcessing = true;
+      setAutoFetchStatus('scanning');
+      setLastScanTime(new Date().toLocaleTimeString());
+
+      try {
+        // Get all channels
+        const channelsRes = await fetch('https://localhost:5000/slack/api/list_conversations', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!channelsRes.ok) {
+          setAutoFetchStatus('idle');
+          isProcessing = false;
+          return;
+        }
+
+        const channelsData = await channelsRes.json();
+        const channels = channelsData.channels || [];
+
+        if (channels.length === 0) {
+          setAutoFetchStatus('idle');
+          isProcessing = false;
+          return;
+        }
+
+        // Check each channel for mentions
+        let newMentionsCount = 0;
+        let newProcessedCount = 0;
+
+        for (const channel of channels) {
+          try {
+            const response = await fetch(`https://localhost:5000/slack/api/check-channel-mentions`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                channel: channel.id,
+                project_id: selectedProject ? (selectedProject._id || selectedProject.id) : null,
+                auto_fetch: true,
+                processed_mention_ids: Array.from(processedMentionIdsRef.current) // Send already processed IDs
+              })
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              const mentions = data.mentions || [];
+              
+              // Filter out already processed mentions
+              const newMentions = mentions.filter(mention => {
+                const mentionId = `${channel.id}_${mention.ts}`;
+                return !processedMentionIdsRef.current.has(mentionId);
+              });
+
+              if (newMentions.length > 0) {
+                newMentionsCount += newMentions.length;
+                
+                // Mark these mentions as processed
+                const newIds = newMentions.map(mention => `${channel.id}_${mention.ts}`);
+                newIds.forEach(id => processedMentionIdsRef.current.add(id));
+                // Also update state for UI (optional, but keeps it in sync)
+                setProcessedMentionIds(new Set(processedMentionIdsRef.current));
+
+                // Log new mentions found
+                setRefreshLogs(prev => [...prev, {
+                  type: 'info',
+                  message: `🔍 Scanning #${channel.name}...`,
+                  timestamp: new Date().toLocaleTimeString()
+                }, {
+                  type: 'success',
+                  message: `🔔 Found ${newMentions.length} new @Feeta mention(s) in #${channel.name}`,
+                  timestamp: new Date().toLocaleTimeString()
+                }]);
+                
+                // Add details about each new mention
+                newMentions.forEach((mention) => {
+                  setRefreshLogs(prev => [...prev, {
+                    type: 'info',
+                    message: `  → ${mention.user_name || 'User'}: "${mention.question || mention.text || 'No question'}"`,
+                    timestamp: new Date().toLocaleTimeString()
+                  }]);
+                });
+              }
+
+              // Count processed mentions (from backend response)
+              const processedCount = data.processed_count || 0;
+              newProcessedCount += processedCount;
+              
+              if (processedCount > 0 && newMentions.length > 0) {
+                setRefreshLogs(prev => [...prev, {
+                  type: 'success',
+                  message: `✅ Processed ${processedCount} mention(s) from #${channel.name} - Solutions sent to Slack!`,
+                  timestamp: new Date().toLocaleTimeString()
+                }]);
+              }
+            }
+          } catch (error) {
+            // Silently skip errors for individual channels
+            console.error(`Error checking channel ${channel.name}:`, error);
+          }
+        }
+
+        // Only update counters for new mentions
+        if (newMentionsCount > 0) {
+          setTotalMentionsFound(prev => prev + newMentionsCount);
+          setTotalProcessed(prev => prev + newProcessedCount);
+
+          setAutoFetchStatus('processing');
+          setTimeout(() => setAutoFetchStatus('idle'), 500);
+        } else {
+          setAutoFetchStatus('idle');
+        }
+      } catch (error) {
+        console.error('Auto-fetch error:', error);
+        setAutoFetchStatus('idle');
+      } finally {
+        isProcessing = false;
+        setIsFirstFetch(false);
+      }
+    };
+
+    // Run immediately on first fetch
+    autoFetchMentions();
+    
+    // Then set interval to 1 minute (60000ms) after first fetch
+    timeoutId = setTimeout(() => {
+      intervalId = setInterval(autoFetchMentions, 60000); // Every minute
+    }, 1000); // Wait 1 second after first fetch before setting interval
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [autoFetchEnabled, slackConnected, activePage, selectedProject]);
+
+  const handleIssueResolution = async () => {
+    if (!issueQuestion.trim()) {
+      alert('Please enter your question');
+      return;
+    }
+
+    if (!issueChannel) {
       alert('Please select a Slack channel');
       return;
     }
 
     const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Please login first');
+      return;
+    }
+
+    setIsAnalyzingIssue(true);
+
     try {
+      let response;
+      if (selectedProject) {
+        // Use project-specific endpoint if project is selected
+        response = await fetch(`https://localhost:5000/api/projects/${selectedProject._id || selectedProject.id}/resolve-issue`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            question: issueQuestion,
+            channel: issueChannel
+          })
+        });
+      } else {
+        // Use general endpoint if no project selected
+        response = await fetch(`https://localhost:5000/slack/api/resolve-issue`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            question: issueQuestion,
+            channel: issueChannel
+          })
+        });
+      }
+
+      if (response.ok) {
+        const data = await response.json();
+        alert('✅ Issue analyzed and solution sent to Slack!');
+        setIssueQuestion('');
+        setIssueChannel('');
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to resolve issue: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error resolving issue:', error);
+      alert('Error resolving issue. Please try again.');
+    } finally {
+      setIsAnalyzingIssue(false);
+    }
+  };
+
+  const handleRefreshChannel = async () => {
+    if (!issueChannel) {
+      alert('Please select a Slack channel first');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Please login first');
+      return;
+    }
+
+    setIsRefreshing(true);
+    setRefreshLogs([]);
+    setChannelMessages([]);
+
+    try {
+      // Add initial log
+      setRefreshLogs(prev => [...prev, {
+        type: 'info',
+        message: 'Starting channel scan...',
+        timestamp: new Date().toLocaleTimeString()
+      }]);
+
+      const response = await fetch(`https://localhost:5000/slack/api/check-channel-mentions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          channel: issueChannel,
+          project_id: selectedProject ? (selectedProject._id || selectedProject.id) : null
+        })
+      }).catch((fetchError) => {
+        // Handle network errors
+        let errorMsg = 'Network connection failed';
+        if (fetchError.message.includes('Failed to fetch') || fetchError.message.includes('NetworkError')) {
+          errorMsg = 'Cannot connect to backend server. Please ensure:\n1. Backend server is running on https://localhost:5000\n2. SSL certificate is trusted (or use http://localhost:5000)\n3. No firewall is blocking the connection';
+        } else {
+          errorMsg = fetchError.message;
+        }
+        setRefreshLogs(prev => [...prev, {
+          type: 'error',
+          message: `❌ Network Error: ${errorMsg}`,
+          timestamp: new Date().toLocaleTimeString()
+        }]);
+        throw fetchError;
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Add logs from response
+        if (data.logs) {
+          setRefreshLogs(prev => [...prev, ...data.logs]);
+        }
+        
+        // Set channel messages if provided
+        if (data.messages) {
+          setChannelMessages(data.messages);
+        }
+        
+        // Add summary log
+        const processedCount = data.processed_count || 0;
+        const mentionsFound = data.mentions_found || 0;
+        
+        setRefreshLogs(prev => [...prev, {
+          type: 'success',
+          message: `Scan complete! Found ${mentionsFound} mention(s), processed ${processedCount} successfully.`,
+          timestamp: new Date().toLocaleTimeString()
+        }]);
+        
+        if (processedCount > 0) {
+          setRefreshLogs(prev => [...prev, {
+            type: 'success',
+            message: `✅ Solutions sent to ${processedCount} user(s) in Slack!`,
+            timestamp: new Date().toLocaleTimeString()
+          }]);
+        } else if (mentionsFound === 0) {
+          setRefreshLogs(prev => [...prev, {
+            type: 'info',
+            message: 'ℹ️ No @Feeta mentions found in the last 100 messages.',
+            timestamp: new Date().toLocaleTimeString()
+          }]);
+        }
+      } else {
+        let errorMessage = 'Unknown error';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
+        } catch (parseError) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        setRefreshLogs(prev => [...prev, {
+          type: 'error',
+          message: `❌ Error: ${errorMessage}`,
+          timestamp: new Date().toLocaleTimeString()
+        }]);
+      }
+    } catch (error) {
+      console.error('Error refreshing channel:', error);
+      // Only add error log if it wasn't already added in the catch above
+      if (error.name !== 'TypeError' || !error.message.includes('fetch')) {
+        setRefreshLogs(prev => [...prev, {
+          type: 'error',
+          message: `❌ Error: ${error.message || 'Failed to refresh channel. Please check your connection and ensure the backend server is running.'}`,
+          timestamp: new Date().toLocaleTimeString()
+        }]);
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const showPendingTasksApproval = async (projectId) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Please login first');
+      return;
+    }
+
+    if (!projectId) {
+      alert('No project selected');
+      return;
+    }
+
+    try {
+      console.log(`📋 Loading pending tasks for project: ${projectId}`);
+      
+      // Fetch pending tasks with suggestions
+      const tasksRes = await fetch(`https://localhost:5000/api/projects/${projectId}/tasks/pending-approval`, {
+        method: 'GET',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log(`📋 Response status: ${tasksRes.status}`);
+      
+      if (tasksRes.ok) {
+        const tasksData = await tasksRes.json();
+        console.log(`✅ Loaded ${tasksData.tasks?.length || 0} pending tasks`);
+        setPendingTasks(tasksData.tasks || []);
+        
+        // Fetch Slack channels (optional - don't fail if this fails)
+        try {
+          const channelsRes = await fetch('https://localhost:5000/slack/api/list_conversations', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (channelsRes.ok) {
+            const channelsData = await channelsRes.json();
+            setSlackChannels(channelsData.channels || []);
+          }
+        } catch (channelError) {
+          console.warn('Failed to load Slack channels:', channelError);
+          // Continue without channels
+        }
+        
+        setShowApprovalModal(true);
+      } else {
+        let errorMsg = `HTTP ${tasksRes.status}`;
+        try {
+          const errorData = await tasksRes.json();
+          errorMsg = errorData.error || errorMsg;
+        } catch (e) {
+          errorMsg = `${errorMsg}: ${tasksRes.statusText}`;
+        }
+        console.error('❌ Failed to load pending tasks:', errorMsg);
+        alert(`Failed to load pending tasks: ${errorMsg}`);
+      }
+    } catch (error) {
+      console.error('❌ Error loading pending tasks:', error);
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        alert('Network error: Could not connect to server. Please check if the backend is running.');
+      } else {
+        alert(`Error loading pending tasks: ${error.message || 'Unknown error'}`);
+      }
+    }
+  };
+
+  const handleApproveTasks = async () => {
+    if (!selectedProject) {
+      alert('No project selected');
+      return;
+    }
+    
+    const taskIds = pendingTasks.map(t => t.id || t._id).filter(id => id);
+    if (taskIds.length === 0) {
+      alert('No tasks to approve');
+      return;
+    }
+
+    // If Slack is connected, channel is required
+    if (slackConnected && !selectedChannel) {
+      alert('Please select a Slack channel to send tasks');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Please login first');
+      return;
+    }
+
+    try {
+      console.log(`✅ Approving ${taskIds.length} tasks...`);
+      
       const response = await fetch(`https://localhost:5000/api/projects/${selectedProject._id || selectedProject.id}/tasks/approve`, {
         method: 'POST',
         headers: {
@@ -666,25 +1311,28 @@ export default function DemoDash() {
         },
         body: JSON.stringify({
           task_ids: taskIds,
-          channel_id: selectedChannel,
+          channel_id: selectedChannel || null,
           task_assignments: taskAssignments
         })
       });
 
       if (response.ok) {
         const data = await response.json();
-        alert(`✅ ${data.approved_count} tasks approved and sent to Slack!`);
+        const message = slackConnected && selectedChannel 
+          ? `✅ ${data.approved_count} tasks approved and sent to Slack!`
+          : `✅ ${data.approved_count} tasks approved${slackConnected ? ' (Slack not configured)' : ''}`;
+        alert(message);
         setShowApprovalModal(false);
         setPendingTasks([]);
         setTaskAssignments({});
         setSelectedChannel('');
       } else {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
         alert(`Error: ${error.error || 'Failed to approve tasks'}`);
       }
     } catch (error) {
       console.error('Error approving tasks:', error);
-      alert('Failed to approve tasks');
+      alert(`Failed to approve tasks: ${error.message || 'Network error'}`);
     }
   };
 
@@ -760,6 +1408,10 @@ export default function DemoDash() {
         setSelectedProject(data.project);
         setMessages([]);
         setSessionId(null);
+        // Open projects panel in sidebar
+        if (!isProjectsPanelOpen) {
+          toggleProjectsPanel();
+        }
       } else {
         alert('Failed to create project');
       }
@@ -1131,7 +1783,7 @@ export default function DemoDash() {
         ))}
         <button
           type="submit"
-          className="w-full px-4 py-2 bg-gradient-to-r from-[#4C3BCF] to-purple-600 hover:from-[#4C3BCF]/90 hover:to-purple-600/90 rounded-lg transition-all font-medium text-sm"
+          className="w-full px-4 py-2 bg-gradient-to-r from-[#4C3BCF] to-[#6B5CE6] hover:from-[#4C3BCF]/90 hover:to-[#6B5CE6]/90 rounded-lg transition-all font-medium text-sm"
         >
           Submit Answers
         </button>
@@ -1241,67 +1893,43 @@ export default function DemoDash() {
       backface-visibility: hidden;
       perspective: 1000px;
     }
+    
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #0a0a0a;
+      border-radius: 10px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #4C3BCF;
+      border-radius: 10px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #6B5CE6;
+    }
   `;
 
-  const stats = [
-    { 
-      label: 'Active projects', 
-      value: '4', 
-      icon: (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2"/>
-          <path d="M8 4V20M16 4V20M4 12H20" stroke="currentColor" strokeWidth="2"/>
-        </svg>
-      )
-    },
-    { 
-      label: 'Priority tasks', 
-      value: '6', 
-      icon: (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2"/>
-          <path d="M8 12L11 15L16 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      )
-    },
-    { 
-      label: 'Challenges', 
-      value: '2', 
-      icon: (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-          <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-          <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-        </svg>
-      )
-    },
-    { 
-      label: 'Members online', 
-      value: '5', 
-      icon: (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
-          <path d="M2 21V19C2 16.5 4.5 14.5 7.5 14.5H10.5C13.5 14.5 16 16.5 16 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          <circle cx="17" cy="7" r="3" stroke="currentColor" strokeWidth="2"/>
-          <path d="M22 21V19.5C22 17.5 20 16 18 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-        </svg>
-      )
-    }
-  ];
-
-  const activities = [
-    { time: 'Now', user: 'Sarah', action: 'Completed Homepage Wireframe' },
-    { time: '2h ago', user: 'James', action: 'Updated The User Profile Design' },
-    { time: '3:45', user: 'Laura', action: 'Finalized Color Palette' },
-    { time: '14:40', user: 'David', action: 'Shared The Mobile App Prototype' },
-    { time: '11:30', user: 'Chris', action: 'Conducted A Design Critique Session' }
-  ];
-
-  const dashboardProjects = [
-    { name: 'Project Hero', creator: 'James', status: 'Active', category: 'Projects', date: '22 Aug 2025', update: 'Phase two work started.' },
-    { name: 'Website revamp', creator: 'Sarah', status: 'Editing', category: 'Websites', date: '15 Aug 2025', update: 'Homepage layout under review.' },
-    { name: 'Project Hero', creator: 'Chris', status: 'Active', category: 'Projects', date: '12 Aug 2025', update: 'Requirements list submitted.' }
-  ];
+  // Dashboard state
+  const [dashboardStats, setDashboardStats] = useState({
+    activeProjects: 0,
+    priorityTasks: 0,
+    tasksCompleted: 0,
+    members: 0
+  });
+  const [dashboardActivities, setDashboardActivities] = useState([]);
+  const [pendingTasksForDisplay, setPendingTasksForDisplay] = useState([]);
+  const [dashboardProjects, setDashboardProjects] = useState([]);
+  const [projectTasks, setProjectTasks] = useState({}); // {projectId: [{title, status, ...}]}
+  const [pieChartData, setPieChartData] = useState({
+    completed: 65,
+    inProgress: 25,
+    pending: 10
+  });
+  const [userName, setUserName] = useState('User');
 
   return (
     <>
@@ -1366,7 +1994,7 @@ export default function DemoDash() {
                 </svg>
               </button>
               
-              <button className="w-full flex items-center justify-center p-2 text-blue-400 hover:text-blue-300 hover:bg-[#1a1a1a] rounded-lg transition-colors">
+              <button className="w-full flex items-center justify-center p-2 text-[#4C3BCF] hover:text-[#6B5CE6] hover:bg-[#1a1a1a] rounded-lg transition-colors">
                 <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
                   <path d="M8 2L10 6L14 6.5L11 9.5L11.5 14L8 12L4.5 14L5 9.5L2 6.5L6 6L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
                 </svg>
@@ -1395,7 +2023,7 @@ export default function DemoDash() {
             <span>Search</span>
           </button>
           
-          <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-blue-400 hover:text-blue-300 hover:bg-[#1a1a1a] rounded-lg transition-colors">
+          <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[#4C3BCF] hover:text-[#6B5CE6] hover:bg-[#1a1a1a] rounded-lg transition-colors">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M8 2L10 6L14 6.5L11 9.5L11.5 14L8 12L4.5 14L5 9.5L2 6.5L6 6L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
             </svg>
@@ -1481,6 +2109,17 @@ export default function DemoDash() {
             {!sidebarCollapsed && <span>Team</span>}
           </button>
 
+          <button 
+            onClick={() => handleMenuItemClick('issue-resolution')}
+            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 text-sm ${activePage === 'issue-resolution' ? 'text-white bg-[#1a1a1a]' : 'text-gray-400 hover:text-white'} hover:bg-[#1a1a1a] rounded-lg transition-all`}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0">
+              <path d="M8 2L10 6L14 6.5L11 9.5L11.5 14L8 12L4.5 14L5 9.5L2 6.5L6 6L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+              <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+            </svg>
+            {!sidebarCollapsed && <span>Issue Resolution</span>}
+          </button>
+
           {!sidebarCollapsed && (
           <div className="pt-3 bg-[#111111]">
             <p className="text-xs text-gray-500 px-3 pb-2">Recents</p>
@@ -1526,7 +2165,7 @@ export default function DemoDash() {
               </button>
 
               <div className="flex items-center gap-3 px-3 py-3 mt-2 hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer">
-                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                <div className="w-8 h-8 bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                   A
                 </div>
                 <div className="flex-1">
@@ -1556,7 +2195,7 @@ export default function DemoDash() {
                   <path d="M8 6V8M8 10H8.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
               </button>
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-sm font-bold cursor-pointer hover:scale-110 transition-transform">
+              <div className="w-10 h-10 bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] rounded-full flex items-center justify-center text-white text-sm font-bold cursor-pointer hover:scale-110 transition-transform">
                 A
               </div>
             </div>
@@ -1590,8 +2229,13 @@ export default function DemoDash() {
           {/* New Project Button */}
           <div className="px-4 py-4 border-b border-[#1f1f1f]">
             <button 
-              onClick={() => setShowCreateModal(true)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#4C3BCF] to-purple-600 hover:from-[#4C3BCF]/90 hover:to-purple-600/90 rounded-lg text-white text-sm font-medium transition-all shadow-lg shadow-purple-500/20">
+              onClick={() => {
+                if (!isProjectsPanelOpen) {
+                  toggleProjectsPanel();
+                }
+                setShowCreateModal(true);
+              }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#4C3BCF] to-[#6B5CE6] hover:from-[#4C3BCF]/90 hover:to-[#6B5CE6]/90 rounded-lg text-white text-sm font-medium transition-all shadow-lg shadow-[#4C3BCF]/20">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                   <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
@@ -1616,7 +2260,7 @@ export default function DemoDash() {
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all group text-left ${selectedProject?._id === project._id || selectedProject?.id === project.id ? 'bg-[#1a1a1a] text-white' : 'hover:bg-[#1a1a1a]'}`}
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${idx % 3 === 0 ? 'bg-green-400' : idx % 3 === 1 ? 'bg-yellow-400' : 'bg-blue-400'}`}></span>
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${idx % 3 === 0 ? 'bg-green-400' : idx % 3 === 1 ? 'bg-yellow-400' : 'bg-[#4C3BCF]'}`}></span>
                       <span className="text-sm text-gray-300 group-hover:text-white transition-colors truncate">{project.name}</span>
                     </div>
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="flex-shrink-0 text-gray-600 group-hover:text-gray-400 transition-colors">
@@ -1658,7 +2302,7 @@ export default function DemoDash() {
               <button
                 onClick={createProject}
                 disabled={!newProjectName.trim()}
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#4C3BCF] to-purple-600 hover:from-[#4C3BCF]/90 hover:to-purple-600/90 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#4C3BCF] to-[#6B5CE6] hover:from-[#4C3BCF]/90 hover:to-[#6B5CE6]/90 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
                 Create
               </button>
@@ -1683,8 +2327,8 @@ export default function DemoDash() {
         >
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl shadow-lg shadow-black/5">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center backdrop-blur-sm">
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="text-purple-400">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#4C3BCF]/20 to-[#6B5CE6]/20 flex items-center justify-center backdrop-blur-sm">
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="text-[#4C3BCF]">
               <rect x="3" y="3" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
               <rect x="11" y="3" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
               <rect x="3" y="11" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
@@ -1710,8 +2354,8 @@ export default function DemoDash() {
                           {selectedProject.repos.map((repo, idx) => (
                             <span key={idx} className={`px-1.5 py-0.5 text-xs rounded ${
                               repo.type === 'frontend' ? 'bg-green-500/20 text-green-400' :
-                              repo.type === 'backend' ? 'bg-blue-500/20 text-blue-400' :
-                              repo.type === 'fullstack' ? 'bg-purple-500/20 text-purple-400' :
+                              repo.type === 'backend' ? 'bg-[#4C3BCF]/20 text-[#4C3BCF]' :
+                              repo.type === 'fullstack' ? 'bg-[#4C3BCF]/20 text-[#4C3BCF]' :
                               'bg-gray-500/20 text-gray-400'
                             }`}>
                               {repo.type}
@@ -1721,7 +2365,7 @@ export default function DemoDash() {
                       </div>
                       <button
                         onClick={() => githubConnected && setShowRepoModal(true)}
-                        className="text-blue-400 hover:text-blue-300 ml-0.5 transition-colors"
+                        className="text-[#4C3BCF] hover:text-[#6B5CE6] ml-0.5 transition-colors"
                       >
                         Manage
                       </button>
@@ -1734,7 +2378,7 @@ export default function DemoDash() {
                       <span>{selectedProject.repo.full_name}</span>
                       <button
                         onClick={() => githubConnected && setShowRepoModal(true)}
-                        className="text-blue-400 hover:text-blue-300 ml-0.5 transition-colors"
+                        className="text-[#4C3BCF] hover:text-[#6B5CE6] ml-0.5 transition-colors"
                       >
                         Change
                       </button>
@@ -1742,7 +2386,7 @@ export default function DemoDash() {
                   ) : (
                     <button
                       onClick={() => githubConnected ? setShowRepoModal(true) : alert("Please connect GitHub first")}
-                      className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+                      className="text-xs text-[#4C3BCF] hover:text-[#6B5CE6] transition-colors flex items-center gap-1"
                     >
                       <svg width="11" height="11" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
@@ -1783,7 +2427,7 @@ export default function DemoDash() {
               <div className="relative group">
                 <div 
                   onClick={githubConnected ? null : connectGithub}
-                  className={`w-8 h-8 ${githubConnected ? 'bg-blue-500/20 border-blue-500/30 shadow-lg shadow-blue-500/10' : 'bg-white/5 border-white/10 hover:bg-blue-500/20 hover:border-blue-500/30'} border rounded-lg backdrop-blur-sm flex items-center justify-center ${githubConnected ? '' : 'cursor-pointer'} transition-all p-1.5`}
+                  className={`w-8 h-8 ${githubConnected ? 'bg-[#4C3BCF]/20 border-[#4C3BCF]/30 shadow-lg shadow-[#4C3BCF]/10' : 'bg-white/5 border-white/10 hover:bg-[#4C3BCF]/20 hover:border-[#4C3BCF]/30'} border rounded-lg backdrop-blur-sm flex items-center justify-center ${githubConnected ? '' : 'cursor-pointer'} transition-all p-1.5`}
                 >
                   <Image 
                     src="/Images/github.png" 
@@ -1792,7 +2436,7 @@ export default function DemoDash() {
                     height={20}
                     className={`w-full h-full object-contain transition-all ${!githubConnected ? 'grayscale group-hover:grayscale-0' : ''}`}
                   />
-                  {githubConnected && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-400 rounded-full border-2 border-[#0a0a0a]"></span>}
+                  {githubConnected && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#4C3BCF] rounded-full border-2 border-[#0a0a0a]"></span>}
                 </div>
                 <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/10 rounded-lg text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50 shadow-xl">
                   {githubConnected ? 'GitHub Connected' : 'Click to Connect GitHub'}
@@ -1801,7 +2445,7 @@ export default function DemoDash() {
               
               {/* Jira */}
               <div className="relative group">
-                <div className="w-8 h-8 bg-white/5 border border-white/10 hover:bg-blue-500/20 hover:border-blue-500/30 rounded-lg backdrop-blur-sm flex items-center justify-center transition-all p-1.5">
+                <div className="w-8 h-8 bg-white/5 border border-white/10 hover:bg-[#4C3BCF]/20 hover:border-[#4C3BCF]/30 rounded-lg backdrop-blur-sm flex items-center justify-center transition-all p-1.5">
                   <Image 
                     src="/Images/jira.png" 
                     alt="Jira" 
@@ -1833,7 +2477,7 @@ export default function DemoDash() {
               
               {/* Google Calendar */}
               <div className="relative group">
-                <div className="w-8 h-8 bg-white/5 border border-white/10 hover:bg-blue-500/20 hover:border-blue-500/30 rounded-lg backdrop-blur-sm flex items-center justify-center transition-all p-1.5">
+                <div className="w-8 h-8 bg-white/5 border border-white/10 hover:bg-[#4C3BCF]/20 hover:border-[#4C3BCF]/30 rounded-lg backdrop-blur-sm flex items-center justify-center transition-all p-1.5">
                   <Image 
                     src="/Images/google-calendar.png" 
                     alt="Google Calendar" 
@@ -1849,8 +2493,8 @@ export default function DemoDash() {
             </div>
             
             <div className="flex -space-x-2 py-2.5">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 border-2 border-[#0a0a0a] ring-1 ring-white/10 shadow-lg"></div>
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 border-2 border-[#0a0a0a] ring-1 ring-white/10 shadow-lg"></div>
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] border-2 border-[#0a0a0a] ring-1 ring-white/10 shadow-lg"></div>
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] border-2 border-[#0a0a0a] ring-1 ring-white/10 shadow-lg"></div>
             </div>
             <button className="flex items-center gap-2 px-3.5 py-2.5 text-sm text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 backdrop-blur-xl border border-white/10 hover:border-white/20 rounded-xl transition-all shadow-lg shadow-black/5">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -1868,7 +2512,7 @@ export default function DemoDash() {
           {/* Greeting */}
           <div className="mb-8 flex items-center justify-between">
             <div>
-              <h2 className="text-3xl font-bold mb-2">Good Evening, Aditya!</h2>
+              <h2 className="text-3xl font-bold mb-2">Good {getGreeting()}, {userName}!</h2>
               <p className="text-gray-400 text-sm">Here is today's overview</p>
             </div>
             <div className="flex gap-3">
@@ -1889,72 +2533,356 @@ export default function DemoDash() {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-4 gap-5 mb-8">
-            {stats.map((stat, i) => (
-              <div key={i} className="gpu-accelerate bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] hover:shadow-2xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mb-3">{stat.label}</p>
-                    <p className="text-4xl font-bold tracking-tight">{stat.value}</p>
-                  </div>
-                  <div className="w-14 h-14 bg-[#1a1a1a]/50 group-hover:bg-[#222222]/50 rounded-xl flex items-center justify-center text-gray-400 group-hover:text-gray-300 transition-all ml-4">
-                    {stat.icon}
-                  </div>
+            <div className="gpu-accelerate bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] hover:shadow-2xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mb-3">Active projects</p>
+                  <p className="text-4xl font-bold tracking-tight">{dashboardStats.activeProjects}</p>
+                </div>
+                <div className="w-14 h-14 bg-[#1a1a1a]/50 group-hover:bg-[#222222]/50 rounded-xl flex items-center justify-center text-gray-400 group-hover:text-gray-300 transition-all ml-4">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M8 4V20M16 4V20M4 12H20" stroke="currentColor" strokeWidth="2"/>
+                  </svg>
                 </div>
               </div>
-            ))}
+            </div>
+            
+            <div className="gpu-accelerate bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] hover:shadow-2xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mb-3">Priority tasks</p>
+                  <p className="text-4xl font-bold tracking-tight">{dashboardStats.priorityTasks}</p>
+                </div>
+                <div className="w-14 h-14 bg-[#1a1a1a]/50 group-hover:bg-[#222222]/50 rounded-xl flex items-center justify-center text-gray-400 group-hover:text-gray-300 transition-all ml-4">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M8 12L11 15L16 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            
+            <div className="gpu-accelerate bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] hover:shadow-2xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mb-3">Tasks completed</p>
+                  <p className="text-4xl font-bold tracking-tight">{dashboardStats.tasksCompleted}</p>
+                </div>
+                <div className="w-14 h-14 bg-[#1a1a1a]/50 group-hover:bg-[#222222]/50 rounded-xl flex items-center justify-center text-gray-400 group-hover:text-gray-300 transition-all ml-4">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 12L11 14L15 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            
+            <div className="gpu-accelerate bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] hover:shadow-2xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mb-3">Members</p>
+                  <p className="text-4xl font-bold tracking-tight">{dashboardStats.members}</p>
+                </div>
+                <div className="w-14 h-14 bg-[#1a1a1a]/50 group-hover:bg-[#222222]/50 rounded-xl flex items-center justify-center text-gray-400 group-hover:text-gray-300 transition-all ml-4">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M2 21V19C2 16.5 4.5 14.5 7.5 14.5H10.5C13.5 14.5 16 16.5 16 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <circle cx="17" cy="7" r="3" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M22 21V19.5C22 17.5 20 16 18 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Progress & Activity */}
           <div className="grid grid-cols-3 gap-6 mb-8">
-            {/* Progress Report */}
-            <div className="col-span-2 bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all duration-300">
+            {/* Progress Report - Circular Chart */}
+            <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all duration-300">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold">Progress report</h3>
+                <h3 className="text-lg font-semibold">Team Performance</h3>
                 <button className="flex items-center gap-2 px-3 py-1.5 text-xs bg-[#1a1a1a] hover:bg-[#222222] rounded-lg text-gray-400 transition-colors">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                     <rect x="2" y="3" width="10" height="8" rx="1" stroke="currentColor" strokeWidth="1.2"/>
                     <path d="M4 1V3M10 1V3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
                   </svg>
-                  <span>May - Aug</span>
+                  <span>This Month</span>
                 </button>
               </div>
-              <div className="h-48 relative">
-                <svg className="w-full h-full" viewBox="0 0 600 180">
-                  <defs>
-                    <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#666" />
-                      <stop offset="50%" stopColor="#999" />
-                      <stop offset="100%" stopColor="#666" />
-                    </linearGradient>
-                  </defs>
-                  <polyline
-                    points="20,80 80,80 140,120 200,120 260,60 320,100 380,40 440,50 500,50 560,50"
-                    fill="none"
-                    stroke="url(#lineGradient)"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <polyline
-                    points="20,80 80,80 140,120 200,120 260,60 320,100 380,40 440,50 500,50 560,50"
-                    fill="none"
-                    stroke="#444"
-                    strokeWidth="2"
-                    strokeDasharray="5,5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity="0.5"
-                  />
-                  <text x="20" y="170" fill="#555" fontSize="12">May</text>
-                  <text x="200" y="170" fill="#555" fontSize="12">June</text>
-                  <text x="380" y="170" fill="#555" fontSize="12">July</text>
-                  <text x="540" y="170" fill="#555" fontSize="12">Aug</text>
-                  <text x="5" y="160" fill="#555" fontSize="12">0</text>
-                  <text x="5" y="120" fill="#555" fontSize="12">100</text>
-                  <text x="5" y="80" fill="#555" fontSize="12">200</text>
-                  <text x="5" y="40" fill="#555" fontSize="12">300</text>
-                  <text x="5" y="10" fill="#555" fontSize="12">400</text>
-                </svg>
+              <div className="relative flex flex-col items-center justify-center py-4">
+                {/* Pie Chart */}
+                <div className="relative w-full max-w-lg h-96 flex items-center justify-center">
+                  <svg className="w-full h-full" viewBox="0 0 400 400" style={{ filter: 'drop-shadow(0 20px 40px rgba(76, 59, 207, 0.4))' }}>
+                    <defs>
+                      {/* Purple Gradient - Completed */}
+                      <linearGradient id="purpleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#4C3BCF" stopOpacity="1" />
+                        <stop offset="50%" stopColor="#6B5CE6" stopOpacity="1" />
+                        <stop offset="100%" stopColor="#8B7AE8" stopOpacity="0.95" />
+                      </linearGradient>
+                      
+                      {/* Blue Gradient - In Progress */}
+                      <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#3B82F6" stopOpacity="1" />
+                        <stop offset="50%" stopColor="#60A5FA" stopOpacity="1" />
+                        <stop offset="100%" stopColor="#93C5FD" stopOpacity="0.95" />
+                      </linearGradient>
+                      
+                      {/* Green Gradient - Pending */}
+                      <linearGradient id="greenGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#10B981" stopOpacity="1" />
+                        <stop offset="50%" stopColor="#34D399" stopOpacity="1" />
+                        <stop offset="100%" stopColor="#6EE7B7" stopOpacity="0.95" />
+                      </linearGradient>
+                      
+                      {/* Shadow filter */}
+                      <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+                        <feOffset dx="0" dy="6" result="offsetblur"/>
+                        <feComponentTransfer>
+                          <feFuncA type="linear" slope="0.4"/>
+                        </feComponentTransfer>
+                        <feMerge>
+                          <feMergeNode/>
+                          <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                      </filter>
+                      
+                      {/* Glow effect */}
+                      <filter id="glow">
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                        <feMerge>
+                          <feMergeNode in="coloredBlur"/>
+                          <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                      </filter>
+                    </defs>
+                    
+                    {/* Pie Chart Slices - Starting from top (12 o'clock) */}
+                    {/* Completed */}
+                    {(() => {
+                      const completedPercent = pieChartData.completed;
+                      const completedDegrees = (completedPercent / 100) * 360;
+                      const completedRad = (completedDegrees * Math.PI) / 180;
+                      const endX = 200 + 150 * Math.sin(completedRad);
+                      const endY = 200 - 150 * Math.cos(completedRad);
+                      const largeArc = completedPercent > 50 ? 1 : 0;
+                      return (
+                        <path
+                          d={`M 200 50 A 150 150 0 ${largeArc} 1 ${endX} ${endY} L 200 200 Z`}
+                          fill="url(#purpleGradient)"
+                          filter="url(#shadow)"
+                          className="hover:opacity-90 transition-all duration-300 cursor-pointer"
+                          style={{ transformOrigin: '200px 200px' }}
+                        />
+                      );
+                    })()}
+                    
+                    {/* In Progress */}
+                    {(() => {
+                      const completedPercent = pieChartData.completed;
+                      const inProgressPercent = pieChartData.inProgress;
+                      const startDegrees = (completedPercent / 100) * 360;
+                      const endDegrees = ((completedPercent + inProgressPercent) / 100) * 360;
+                      const startRad = (startDegrees * Math.PI) / 180;
+                      const endRad = (endDegrees * Math.PI) / 180;
+                      const startX = 200 + 150 * Math.sin(startRad);
+                      const startY = 200 - 150 * Math.cos(startRad);
+                      const endX = 200 + 150 * Math.sin(endRad);
+                      const endY = 200 - 150 * Math.cos(endRad);
+                      const largeArc = inProgressPercent > 50 ? 1 : 0;
+                      return (
+                        <path
+                          d={`M ${startX} ${startY} A 150 150 0 ${largeArc} 1 ${endX} ${endY} L 200 200 Z`}
+                          fill="url(#blueGradient)"
+                          filter="url(#shadow)"
+                          className="hover:opacity-90 transition-all duration-300 cursor-pointer"
+                          style={{ transformOrigin: '200px 200px' }}
+                        />
+                      );
+                    })()}
+                    
+                    {/* Pending */}
+                    {(() => {
+                      const completedPercent = pieChartData.completed;
+                      const inProgressPercent = pieChartData.inProgress;
+                      const startDegrees = ((completedPercent + inProgressPercent) / 100) * 360;
+                      const startRad = (startDegrees * Math.PI) / 180;
+                      const startX = 200 + 150 * Math.sin(startRad);
+                      const startY = 200 - 150 * Math.cos(startRad);
+                      return (
+                        <path
+                          d={`M ${startX} ${startY} A 150 150 0 0 1 200 50 L 200 200 Z`}
+                          fill="url(#greenGradient)"
+                          filter="url(#shadow)"
+                          className="hover:opacity-90 transition-all duration-300 cursor-pointer"
+                          style={{ transformOrigin: '200px 200px' }}
+                        />
+                      );
+                    })()}
+                    
+                    {/* Inner circle for donut effect */}
+                    <circle
+                      cx="200"
+                      cy="200"
+                      r="80"
+                      fill="#0a0a0a"
+                      opacity="0.98"
+                    />
+                    
+                    {/* Center text with glow effect */}
+                    <text
+                      x="200"
+                      y="185"
+                      textAnchor="middle"
+                      fill="white"
+                      fontSize="56"
+                      fontWeight="900"
+                      fontFamily="system-ui, -apple-system"
+                      filter="url(#glow)"
+                      style={{ textShadow: '0 0 20px rgba(76, 59, 207, 0.5)' }}
+                    >
+                      {pieChartData.completed}%
+                    </text>
+                    <text
+                      x="200"
+                      y="215"
+                      textAnchor="middle"
+                      fill="#999"
+                      fontSize="16"
+                      fontWeight="600"
+                      fontFamily="system-ui, -apple-system"
+                      letterSpacing="1px"
+                    >
+                      Completed
+                    </text>
+                    
+                    {/* Percentage labels on slices with better positioning */}
+                    {pieChartData.completed > 5 && (
+                      <text
+                        x="200"
+                        y="120"
+                        textAnchor="middle"
+                        fill="white"
+                        fontSize="20"
+                        fontWeight="800"
+                        fontFamily="system-ui"
+                        filter="url(#glow)"
+                        style={{ textShadow: '0 2px 8px rgba(0, 0, 0, 0.5)' }}
+                      >
+                        {pieChartData.completed}%
+                      </text>
+                    )}
+                    {pieChartData.inProgress > 5 && (
+                      <text
+                        x="125"
+                        y="280"
+                        textAnchor="middle"
+                        fill="white"
+                        fontSize="18"
+                        fontWeight="800"
+                        fontFamily="system-ui"
+                        filter="url(#glow)"
+                        style={{ textShadow: '0 2px 8px rgba(0, 0, 0, 0.5)' }}
+                      >
+                        {pieChartData.inProgress}%
+                      </text>
+                    )}
+                    {pieChartData.pending > 5 && (
+                      <text
+                        x="125"
+                        y="180"
+                        textAnchor="middle"
+                        fill="white"
+                        fontSize="16"
+                        fontWeight="800"
+                        fontFamily="system-ui"
+                        filter="url(#glow)"
+                        style={{ textShadow: '0 2px 8px rgba(0, 0, 0, 0.5)' }}
+                      >
+                        {pieChartData.pending}%
+                      </text>
+                    )}
+                  </svg>
+                </div>
+                
+                {/* Enhanced Legend */}
+                <div className="w-full mt-6 grid grid-cols-3 gap-4 px-2">
+                  <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-[#4C3BCF]/10 border border-[#4C3BCF]/20 hover:bg-[#4C3BCF]/15 transition-all group cursor-pointer">
+                    <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] shadow-lg shadow-[#4C3BCF]/30 group-hover:scale-110 transition-transform"></div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-white">{pieChartData.completed}%</div>
+                      <div className="text-xs text-gray-400 mt-0.5">Completed</div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-[#3B82F6]/10 border border-[#3B82F6]/20 hover:bg-[#3B82F6]/15 transition-all group cursor-pointer">
+                    <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#3B82F6] to-[#60A5FA] shadow-lg shadow-[#3B82F6]/30 group-hover:scale-110 transition-transform"></div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-white">{pieChartData.inProgress}%</div>
+                      <div className="text-xs text-gray-400 mt-0.5">In Progress</div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-[#10B981]/10 border border-[#10B981]/20 hover:bg-[#10B981]/15 transition-all group cursor-pointer">
+                    <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#10B981] to-[#34D399] shadow-lg shadow-[#10B981]/30 group-hover:scale-110 transition-transform"></div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-white">{pieChartData.pending}%</div>
+                      <div className="text-xs text-gray-400 mt-0.5">Pending</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Pending Tasks */}
+            <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all duration-300">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold">Pending Tasks</h3>
+                <button className="text-xs text-gray-400 hover:text-white transition-colors">View All</button>
+              </div>
+              <div className="space-y-4 max-h-[340px] overflow-y-auto custom-scrollbar">
+                {pendingTasksForDisplay.length > 0 ? pendingTasksForDisplay.map((task, i) => (
+                  <div key={task.id || i} className="flex items-start gap-3 group pb-3 border-b border-[#1f1f1f]/30 last:border-0">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] flex items-center justify-center text-white text-xs font-semibold">
+                        {task.user?.charAt(0) || 'U'}
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-yellow-500 border-2 border-[#0f0f0f]"></div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-white">{task.user || 'Unassigned'}</span>
+                        <span className="text-xs text-gray-500">{task.time || 'Recently'}</span>
+                      </div>
+                      <p className="text-sm text-white leading-relaxed font-medium mb-1">{task.action || 'Untitled task'}</p>
+                      {task.description && (
+                        <p className="text-xs text-gray-400 leading-relaxed mb-2 line-clamp-2">{task.description}</p>
+                      )}
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <span className={`px-2 py-0.5 text-xs rounded-lg border ${
+                          task.status === 'pending_approval' 
+                            ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' 
+                            : 'bg-[#4C3BCF]/20 text-[#4C3BCF] border-[#4C3BCF]/30'
+                        }`}>
+                          {task.status === 'pending_approval' ? 'Pending Approval' : 'Pending'}
+                        </span>
+                        {task.priority && task.priority !== 'medium' && (
+                          <span className={`px-2 py-0.5 text-xs rounded-lg border ${
+                            task.priority === 'high' || task.priority === 'urgent'
+                              ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                              : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                          }`}>
+                            {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="text-center py-8 text-gray-500 text-sm">No pending tasks</div>
+                )}
               </div>
             </div>
 
@@ -1965,7 +2893,7 @@ export default function DemoDash() {
                 <button className="text-xs text-gray-400 hover:text-white transition-colors">View All</button>
               </div>
               <div className="space-y-4">
-                {activities.map((activity, i) => (
+                {dashboardActivities.length > 0 ? dashboardActivities.slice(0, 4).map((activity, i) => (
                   <div key={i} className="flex items-start gap-3 group">
                     <div className="w-2 h-2 rounded-full bg-gray-600 mt-1.5 flex-shrink-0"></div>
                     <div className="flex-1 min-w-0">
@@ -1983,7 +2911,9 @@ export default function DemoDash() {
                       </p>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-center py-8 text-gray-500 text-sm">No recent activity</div>
+                )}
               </div>
             </div>
           </div>
@@ -2023,7 +2953,15 @@ export default function DemoDash() {
                 </svg>
                 <span>Export</span>
               </button>
-              <button className="flex items-center gap-2 px-3 py-2 text-sm bg-white text-black hover:bg-gray-100 rounded-lg transition-all font-medium shadow-sm">
+              <button 
+                onClick={() => {
+                  if (!isProjectsPanelOpen) {
+                    toggleProjectsPanel();
+                  }
+                  setShowCreateModal(true);
+                }}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-white text-black hover:bg-gray-100 rounded-lg transition-all font-medium shadow-sm"
+              >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <path d="M2 7H12M7 2V12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
@@ -2034,49 +2972,135 @@ export default function DemoDash() {
             <table className="w-full bg-transparent">
               <thead className="bg-transparent">
                 <tr className="border-b border-[#1f1f1f]/50 bg-transparent">
-                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">
-                    <input type="checkbox" className="w-4 h-4 rounded border-gray-600 bg-transparent" />
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Project name</th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Creator</th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Status</th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Category</th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Date added</th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Recent updates</th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Manage</th>
+                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent"></th>
+                   <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Project name</th>
+                   <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Assigned to</th>
+                   <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Status</th>
+                   <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Tasks</th>
+                   <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Task title</th>
+                   <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Intensity</th>
+                   <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Date added</th>
+                   <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Recent updates</th>
+                   <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Manage</th>
                 </tr>
               </thead>
               <tbody className="bg-transparent">
-                {dashboardProjects.map((project, i) => (
+                {dashboardProjects.length > 0 ? dashboardProjects.map((project, i) => {
+                  const projectId = project._id || project.id;
+                  const tasks = projectTasks[projectId] || [];
+                  const firstTask = tasks.length > 0 ? tasks[0] : null;
+                  const taskTitle = firstTask?.title ? (firstTask.title.length > 30 ? firstTask.title.substring(0, 30) + '...' : firstTask.title) : '-';
+                  
+                  // Get assigned person from tasks
+                  const getAssignedPerson = (tasks) => {
+                    if (!tasks || tasks.length === 0) return null;
+                    
+                    // Get unique assigned persons
+                    const assignedPersons = tasks
+                      .map(task => task.assigned_to)
+                      .filter(assigned => assigned && assigned !== 'Unassigned')
+                      .filter((value, index, self) => self.indexOf(value) === index); // Get unique values
+                    
+                    if (assignedPersons.length === 0) return null;
+                    if (assignedPersons.length === 1) return assignedPersons[0];
+                    // If multiple different assignees, show first one with count
+                    return `${assignedPersons[0]} (+${assignedPersons.length - 1})`;
+                  };
+                  
+                  const assignedPerson = getAssignedPerson(tasks);
+                  
+                  // Calculate intensity based on tasks
+                  const calculateIntensity = (tasks) => {
+                    if (!tasks || tasks.length === 0) return { level: '-', color: 'gray' };
+                    
+                    let totalHours = 0;
+                    let hasUrgent = false;
+                    let highPriorityCount = 0;
+                    let totalEstimated = 0;
+                    
+                    tasks.forEach(task => {
+                      const hours = parseFloat(task.estimated_hours) || 0;
+                      totalHours += hours;
+                      totalEstimated++;
+                      
+                      const priority = (task.priority || '').toLowerCase();
+                      if (priority === 'urgent') hasUrgent = true;
+                      if (priority === 'high' || priority === 'urgent') highPriorityCount++;
+                    });
+                    
+                    const avgHours = totalEstimated > 0 ? totalHours / totalEstimated : 0;
+                    const highPriorityRatio = tasks.length > 0 ? highPriorityCount / tasks.length : 0;
+                    
+                    // Determine intensity
+                    if (hasUrgent || avgHours > 16 || (avgHours > 12 && highPriorityRatio > 0.5)) {
+                      return { level: 'Complex', color: 'red' };
+                    } else if (avgHours > 8 || (avgHours > 6 && highPriorityRatio > 0.3)) {
+                      return { level: 'Hard', color: 'orange' };
+                    } else if (avgHours > 4 || highPriorityRatio > 0.2) {
+                      return { level: 'Medium', color: 'yellow' };
+                    } else if (avgHours > 0 || tasks.length > 0) {
+                      return { level: 'Easy', color: 'green' };
+                    } else {
+                      return { level: '-', color: 'gray' };
+                    }
+                  };
+                  
+                  const intensity = calculateIntensity(tasks);
+                  const intensityColors = {
+                    green: 'bg-green-500/10 text-green-400 border-green-500/30',
+                    yellow: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+                    orange: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
+                    red: 'bg-red-500/10 text-red-400 border-red-500/30',
+                    gray: 'bg-gray-500/10 text-gray-400 border-gray-500/30'
+                  };
+                  
+                  return (
                   <tr key={i} className="border-b border-[#1f1f1f]/50 bg-transparent hover:bg-[#0f0f0f]/50 transition-colors">
                     <td className="px-6 py-4 bg-transparent">
-                      <input type="checkbox" className="w-4 h-4 rounded border-gray-600 bg-transparent" />
+                        <input type="checkbox" className="w-4 h-4 rounded border-gray-500 bg-gray-700 cursor-not-allowed opacity-50" disabled />
                     </td>
                     <td className="px-6 py-4 text-sm font-medium bg-transparent">{project.name}</td>
                     <td className="px-6 py-4 bg-transparent">
+                        {assignedPerson ? (
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500"></div>
-                        <span className="text-sm">{project.creator}</span>
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6]"></div>
+                            <span className="text-sm">{assignedPerson}</span>
                       </div>
+                        ) : (
+                          <span className="text-sm text-gray-500">Unassigned</span>
+                        )}
                     </td>
                     <td className="px-6 py-4 bg-transparent">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                        project.status === 'Active' ? 'bg-blue-500/10 text-blue-400' : 'bg-yellow-500/10 text-yellow-400'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                          project.status === 'Active' ? 'bg-blue-400' : 'bg-yellow-400'
-                        }`}></span>
-                        {project.status}
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#4C3BCF]/10 text-[#4C3BCF]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#4C3BCF]"></span>
+                        Active
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-400 bg-transparent">{project.category}</td>
-                    <td className="px-6 py-4 text-sm text-gray-400 bg-transparent">{project.date}</td>
-                    <td className="px-6 py-4 text-sm text-gray-400 bg-transparent">{project.update}</td>
+                      <td className="px-6 py-4 text-sm text-gray-400 bg-transparent">{tasks.length > 0 ? tasks.length : '0'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-400 bg-transparent" title={firstTask?.title || ''}>{taskTitle}</td>
+                      <td className="px-6 py-4 bg-transparent">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${intensityColors[intensity.color]}`}>
+                          {intensity.level}
+                        </span>
+                      </td>
+                    <td className="px-6 py-4 text-sm text-gray-400 bg-transparent">
+                      {project.created_at ? new Date(project.created_at).toLocaleDateString() : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-400 bg-transparent">
+                      {project.updated_at ? new Date(project.updated_at).toLocaleDateString() : 'N/A'}
+                    </td>
                     <td className="px-6 py-4 bg-transparent">
                       <button className="text-sm text-gray-400 hover:text-white transition-colors">Manage</button>
                     </td>
                   </tr>
-                ))}
+                  );
+                }) : (
+                  <tr>
+                    <td colSpan="10" className="px-6 py-12 text-center text-gray-500 bg-transparent">
+                      No projects yet. Create your first project to get started!
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -2175,7 +3199,7 @@ export default function DemoDash() {
                           {/* Avatar */}
                           {msg.role === 'user' ? (
                             /* User Avatar */
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                               {user?.name?.charAt(0).toUpperCase() || 'A'}
                             </div>
                           ) : (
@@ -2209,15 +3233,24 @@ export default function DemoDash() {
   <div className="mt-4 space-y-2">
     <div className="flex items-center justify-between mb-2">
       <div>
-        <p className="font-semibold text-sm text-green-400">✓ Plan Created</p>
+    <p className="font-semibold text-sm text-green-400">✓ Plan Created</p>
         {msg.plan.main_task && (
           <p className="text-xs text-gray-400 mt-1">{msg.plan.main_task}</p>
         )}
       </div>
       {selectedProject && (
         <button
-          onClick={() => showPendingTasksApproval(selectedProject._id || selectedProject.id)}
-          className="px-3 py-1.5 text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/30 transition-all"
+          onClick={() => {
+            const projectId = selectedProject._id || selectedProject.id;
+            console.log('🔍 Selected project:', selectedProject);
+            console.log('🔍 Project ID to use:', projectId);
+            if (projectId) {
+              showPendingTasksApproval(projectId);
+            } else {
+              alert('Project ID is missing. Please select a project first.');
+            }
+          }}
+          className="px-3 py-1.5 text-xs bg-[#4C3BCF]/20 text-[#4C3BCF] border border-[#4C3BCF]/30 rounded-lg hover:bg-[#4C3BCF]/30 transition-all"
         >
           Review & Approve Tasks
         </button>
@@ -2247,7 +3280,7 @@ export default function DemoDash() {
             
             return (
               <div className="text-right">
-                <div className="text-blue-400">⏱️ Total Time: {totalTimeline}</div>
+                <div className="text-[#4C3BCF]">⏱️ Total Time: {totalTimeline}</div>
                 {totalHours > 0 && <div className="text-yellow-400">⏰ {Math.round(totalHours)} hours</div>}
                 {earliestDeadline && (
                   <div className="text-green-400">📅 Start: {earliestDeadline.toLocaleDateString()}</div>
@@ -2271,7 +3304,7 @@ export default function DemoDash() {
             <span>{i + 1}. {task.title || task.task}</span>
             <div className="flex items-center gap-2 text-xs">
               {task.timeline && (
-                <span className="text-blue-400">⏱️ {task.timeline}</span>
+                <span className="text-[#4C3BCF]">⏱️ {task.timeline}</span>
               )}
               {task.deadline && (
                 <span className="text-orange-400">📅 {new Date(task.deadline).toLocaleDateString()}</span>
@@ -2279,10 +3312,10 @@ export default function DemoDash() {
             </div>
           </div>
           {task.role && (
-            <div className="text-xs text-blue-400 mt-1">👤 {task.role}</div>
+            <div className="text-xs text-[#4C3BCF] mt-1">👤 {task.role}</div>
           )}
           {task.assigned_to && task.assigned_to !== 'Unassigned' && (
-            <div className="text-xs text-purple-400 mt-1">👥 Assigned to: {task.assigned_to}</div>
+            <div className="text-xs text-[#4C3BCF] mt-1">👥 Assigned to: {task.assigned_to}</div>
           )}
           {task.estimated_hours && (
             <div className="text-xs text-yellow-400 mt-1">⏰ Estimated: {task.estimated_hours} hours</div>
@@ -2371,6 +3404,200 @@ export default function DemoDash() {
           ) : activePage === 'teams' ? (
             /* Teams Page */
             <TeamsPage user={user} />
+          ) : activePage === 'issue-resolution' ? (
+            /* Issue Resolution Page */
+            <div className="max-w-4xl mx-auto">
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h1 className="text-3xl font-bold mb-2">Issue Resolution</h1>
+                    <p className="text-gray-400">Tag Feeta in Slack and get AI-powered solutions based on your project context</p>
+                  </div>
+                  {/* Auto-Fetch Toggle */}
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-gray-300">Auto-Fetch</p>
+                      <p className="text-xs text-gray-500">
+                        {autoFetchEnabled ? (
+                          <span className="text-green-400">Active • Scans all channels every minute</span>
+                        ) : (
+                          <span>Inactive</span>
+                        )}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setAutoFetchEnabled(!autoFetchEnabled)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        autoFetchEnabled ? 'bg-[#4C3BCF]' : 'bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          autoFetchEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Auto-Fetch Status */}
+                {autoFetchEnabled && (
+                  <div className="bg-[#4C3BCF]/10 border border-[#4C3BCF]/20 rounded-lg p-3 mb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${
+                          autoFetchStatus === 'scanning' ? 'bg-yellow-400 animate-pulse' :
+                          autoFetchStatus === 'processing' ? 'bg-green-400 animate-pulse' :
+                          'bg-gray-400'
+                        }`} />
+                        <div>
+                          <p className="text-sm font-medium text-gray-300">
+                            {autoFetchStatus === 'scanning' ? 'Scanning all channels...' :
+                             autoFetchStatus === 'processing' ? 'Processing mentions...' :
+                             'Monitoring channels'}
+                          </p>
+                          {lastScanTime && (
+                            <p className="text-xs text-gray-500">Last scan: {lastScanTime}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-400">Total Mentions Found</p>
+                        <p className="text-lg font-bold text-[#4C3BCF]">{totalMentionsFound}</p>
+                        <p className="text-xs text-gray-400 mt-1">Total Processed</p>
+                        <p className="text-sm font-semibold text-green-400">{totalProcessed}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {!slackConnected ? (
+                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-6 mb-6">
+                  <p className="text-yellow-400 mb-4">⚠️ Slack is not connected. Please connect Slack to use Issue Resolution.</p>
+                  <button
+                    onClick={connectSlack}
+                    className="px-4 py-2 bg-[#4C3BCF] hover:bg-[#4C3BCF]/80 text-white rounded-lg transition-colors"
+                  >
+                    Connect Slack
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Activity Logs Section - Always visible when Slack is connected */}
+                  <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold">Activity Logs & Debug</h3>
+                          {autoFetchEnabled && (
+                            <p className="text-xs text-gray-400 mt-1">Auto-fetch is active - scans once immediately, then every minute. Each mention processed only once.</p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => {
+                            setRefreshLogs([]);
+                            setChannelMessages([]);
+                            setTotalMentionsFound(0);
+                            setTotalProcessed(0);
+                          }}
+                          className="text-xs text-gray-400 hover:text-white transition-colors"
+                        >
+                          Clear
+                        </button>
+                      </div>
+
+                      {/* Logs Display */}
+                      {(refreshLogs.length > 0 || autoFetchEnabled) && (
+                        <div className="mb-6">
+                          <h4 className="text-sm font-medium mb-3 text-gray-300">
+                            Processing Logs {autoFetchEnabled && <span className="text-[#4C3BCF]">(Live)</span>}
+                          </h4>
+                          <div className="bg-[#0a0a0a] border border-[#1f1f1f] rounded-lg p-4 max-h-96 overflow-y-auto space-y-2">
+                            {refreshLogs.length > 0 ? (
+                              refreshLogs.map((log, idx) => (
+                                <div key={idx} className={`flex items-start gap-2 text-xs ${
+                                  log.type === 'success' ? 'text-green-400' :
+                                  log.type === 'error' ? 'text-red-400' :
+                                  'text-gray-400'
+                                }`}>
+                                  <span className="text-gray-600 font-mono text-[10px] mt-0.5 min-w-[60px]">
+                                    {log.timestamp}
+                                  </span>
+                                  <span className="flex-1 whitespace-pre-wrap">{log.message}</span>
+                                </div>
+                              ))
+                            ) : autoFetchEnabled ? (
+                              <div className="text-xs text-gray-500 text-center py-4">
+                                Waiting for new @Feeta mentions... Scans all channels every minute. Each mention is processed only once.
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Channel Messages Display */}
+                      {channelMessages.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-medium mb-3 text-gray-300">
+                            Channel Messages ({channelMessages.length} found)
+                          </h4>
+                          <p className="text-xs text-gray-500 mb-3">
+                            Showing messages from users only (Feeta's own messages are excluded)
+                          </p>
+                          <div className="bg-[#0a0a0a] border border-[#1f1f1f] rounded-lg p-4 max-h-96 overflow-y-auto space-y-3">
+                            {channelMessages.map((msg, idx) => (
+                              <div key={idx} className={`p-3 rounded-lg border ${
+                                msg.is_mention 
+                                  ? 'bg-[#4C3BCF]/10 border-[#4C3BCF]/30' 
+                                  : 'bg-[#1a1a1a] border-[#2a2a2a]'
+                              }`}>
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] flex items-center justify-center text-white text-[10px] font-bold">
+                                      {msg.user_name?.charAt(0).toUpperCase() || 'U'}
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-300">
+                                      {msg.user_name || 'Unknown User'}
+                                    </span>
+                                    {msg.is_mention && (
+                                      <span className="px-2 py-0.5 bg-[#4C3BCF]/20 text-[#4C3BCF] text-[10px] rounded-full border border-[#4C3BCF]/30">
+                                        @Feeta Mention
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-xs text-gray-500">
+                                    {msg.timestamp ? new Date(msg.timestamp * 1000).toLocaleString() : ''}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-400 whitespace-pre-wrap">{msg.text}</p>
+                                {msg.question && (
+                                  <div className="mt-2 pt-2 border-t border-[#2a2a2a]">
+                                    <p className="text-xs text-gray-500 mb-1">Extracted Question:</p>
+                                    <p className="text-sm text-[#4C3BCF]">{msg.question}</p>
+                                  </div>
+                                )}
+                                {msg.status && (
+                                  <div className="mt-2 pt-2 border-t border-[#2a2a2a]">
+                                    <span className={`text-xs px-2 py-1 rounded ${
+                                      msg.status === 'processed' ? 'bg-green-500/20 text-green-400' :
+                                      msg.status === 'error' ? 'bg-red-500/20 text-red-400' :
+                                      'bg-yellow-500/20 text-yellow-400'
+                                    }`}>
+                                      {msg.status === 'processed' ? '✅ Processed' :
+                                       msg.status === 'error' ? '❌ Error' :
+                                       '⏳ Processing...'}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                </div>
+              )}
+            </div>
           ) : (
             /* Other Pages */
             <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
@@ -2408,14 +3635,15 @@ export default function DemoDash() {
               </button>
             </div>
 
-            {/* Slack Channel Selection */}
-            {slackConnected && slackChannels.length > 0 && (
+            {/* Slack Channel Selection - Required */}
+            {slackConnected ? (
               <div className="mb-6">
-                <label className="block text-sm font-medium mb-2">Select Slack Channel</label>
+                <label className="block text-sm font-medium mb-2">Select Slack Channel *</label>
                 <select
                   value={selectedChannel}
                   onChange={(e) => setSelectedChannel(e.target.value)}
                   className="w-full px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white"
+                  required
                 >
                   <option value="">Select a channel...</option>
                   {slackChannels.map((channel) => (
@@ -2424,98 +3652,70 @@ export default function DemoDash() {
                     </option>
                   ))}
                 </select>
+                {slackChannels.length === 0 && (
+                  <p className="text-xs text-yellow-400 mt-1">Loading channels...</p>
+                )}
+              </div>
+            ) : (
+              <div className="mb-6 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <p className="text-sm text-yellow-400">⚠️ Slack not connected. Tasks will be approved but not sent to Slack.</p>
               </div>
             )}
 
             {/* Tasks List */}
             <div className="space-y-4 mb-6">
-              {pendingTasks.map((task) => (
-                <div key={task.id} className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-sm mb-1">{task.title}</h4>
-                      <p className="text-xs text-gray-400 mb-2">{task.description}</p>
-                      <div className="flex items-center gap-3 text-xs text-gray-500">
-                        {task.deadline && (
-                          <span>📅 {new Date(task.deadline).toLocaleDateString()}</span>
-                        )}
-                        {task.timeline && <span>⏱️ {task.timeline}</span>}
-                        {task.estimated_hours && <span>⏰ {task.estimated_hours}h</span>}
+              {pendingTasks.map((task) => {
+                // Get assigned member (auto-selected best match)
+                const assignment = taskAssignments[task.id];
+                const assignedMember = assignment 
+                  ? task.suggested_members?.find(m => m.name === assignment.assigned_member_name)
+                  : (task.suggested_members && task.suggested_members.length > 0 ? task.suggested_members[0] : null);
+                
+                return (
+                  <div key={task.id} className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm mb-1">{task.title}</h4>
+                        <p className="text-xs text-gray-400 mb-2">{task.description}</p>
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          {task.deadline && (
+                            <span>📅 {new Date(task.deadline).toLocaleDateString()}</span>
+                          )}
+                          {task.timeline && <span>⏱️ {task.timeline}</span>}
+                          {task.estimated_hours && <span>⏰ {task.estimated_hours}h</span>}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Suggested Members */}
-                  {task.suggested_members && task.suggested_members.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-[#2a2a2a]">
-                      <p className="text-xs text-gray-500 mb-2">💡 Suggested Team Members:</p>
-                      <div className="space-y-2">
-                        {task.suggested_members.map((member, idx) => (
-                          <label
-                            key={idx}
-                            className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all ${
-                              taskAssignments[task.id]?.assigned_member_name === member.name
-                                ? 'bg-blue-500/20 border border-blue-500/50'
-                                : 'bg-[#0a0a0a] border border-[#2a2a2a] hover:border-[#3a3a3a]'
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name={`task-${task.id}`}
-                              checked={taskAssignments[task.id]?.assigned_member_name === member.name}
-                              onChange={() => {
-                                setTaskAssignments({
-                                  ...taskAssignments,
-                                  [task.id]: {
-                                    assigned_member_name: member.name,
-                                    assigned_member_email: member.email
-                                  }
-                                });
-                              }}
-                              className="rounded"
-                            />
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-300">{member.name}</span>
-                                <span className={`text-xs px-2 py-0.5 rounded ${
-                                  member.status === 'idle' ? 'bg-green-500/20 text-green-400' :
-                                  member.status === 'busy' ? 'bg-yellow-500/20 text-yellow-400' :
-                                  'bg-gray-500/20 text-gray-400'
-                                }`}>
-                                  {member.status}
-                                </span>
-                                {member.idle_percentage !== undefined && (
-                                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                                    member.idle_percentage >= 50 ? 'bg-green-500/20 text-green-400' :
-                                    member.idle_percentage >= 25 ? 'bg-yellow-500/20 text-yellow-400' :
-                                    'bg-red-500/20 text-red-400'
-                                  }`}>
-                                    {member.idle_percentage.toFixed(1)}% idle
-                                  </span>
-                                )}
-                                <span className="text-xs text-blue-400">Score: {member.score}</span>
-                              </div>
-                              <div className="text-xs text-gray-400 mt-1">
-                                {member.role && <span>{member.role} • </span>}
-                                {member.match_reasons?.join(' • ')}
-                              </div>
-                              {member.skills && member.skills.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {member.skills.slice(0, 3).map((skill, i) => (
-                                    <span key={i} className="text-xs px-1.5 py-0.5 bg-[#0a0a0a] rounded text-gray-500">
-                                      {skill}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </label>
-                        ))}
+                    {/* Show assigned member */}
+                    {assignedMember && (
+                      <div className="mt-3 pt-3 border-t border-[#2a2a2a]">
+                        <p className="text-xs text-gray-500 mb-2">👤 Assigned to:</p>
+                        <div className="flex items-center gap-2 p-2 bg-[#4C3BCF]/10 border border-[#4C3BCF]/20 rounded-lg">
+                          <span className="text-sm font-medium text-gray-300">{assignedMember.name}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            assignedMember.status === 'idle' ? 'bg-green-500/20 text-green-400' :
+                            assignedMember.status === 'busy' ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-gray-500/20 text-gray-400'
+                          }`}>
+                            {assignedMember.status}
+                          </span>
+                          {assignedMember.idle_percentage !== undefined && (
+                            <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                              assignedMember.idle_percentage >= 50 ? 'bg-green-500/20 text-green-400' :
+                              assignedMember.idle_percentage >= 25 ? 'bg-yellow-500/20 text-yellow-400' :
+                              'bg-red-500/20 text-red-400'
+                            }`}>
+                              {assignedMember.idle_percentage.toFixed(1)}% idle
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-400 ml-auto">{assignedMember.role}</span>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Approve Button */}
@@ -2570,23 +3770,23 @@ export default function DemoDash() {
             
             {/* Selection Summary */}
             {selectedRepos.length > 0 && (
-              <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+              <div className="mb-4 p-3 bg-[#4C3BCF]/10 border border-[#4C3BCF]/20 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-blue-300">
+                  <span className="text-sm text-[#4C3BCF]">
                     {selectedRepos.length} repositories selected
                   </span>
                   <button
                     onClick={connectReposToProject}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
+                    className="px-4 py-2 bg-[#4C3BCF] hover:bg-[#4C3BCF]/80 text-white text-sm rounded-lg transition-colors"
                   >
                     Connect Selected
                   </button>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {selectedRepos.map((repo, idx) => (
-                    <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded">
+                    <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 bg-[#4C3BCF]/20 text-[#4C3BCF] text-xs rounded">
                       {repo.name}
-                      <span className="text-blue-400">({repo.type})</span>
+                      <span className="text-[#4C3BCF]">({repo.type})</span>
                     </span>
                   ))}
                 </div>
@@ -2623,7 +3823,7 @@ export default function DemoDash() {
                       onClick={() => toggleRepoSelection(repo)}
                       className={`w-full text-left p-4 rounded-xl border transition-all duration-300 ${
                         isSelected
-                          ? 'bg-blue-500/10 backdrop-blur-sm border-blue-500/30 shadow-lg shadow-blue-500/10'
+                          ? 'bg-[#4C3BCF]/10 backdrop-blur-sm border-[#4C3BCF]/30 shadow-lg shadow-[#4C3BCF]/10'
                           : 'bg-[#111111]/40 backdrop-blur-sm border-[#2a2a2a]/50 hover:bg-[#1a1a1a]/60 hover:border-[#3a3a3a]/60 hover:shadow-lg'
                       }`}
                     >
@@ -2632,7 +3832,7 @@ export default function DemoDash() {
                           {/* Checkbox */}
                           <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
                             isSelected 
-                              ? 'bg-blue-500 border-blue-500' 
+                              ? 'bg-[#4C3BCF] border-[#4C3BCF]' 
                               : 'border-gray-600 hover:border-gray-500'
                           }`}>
                             {isSelected && (
@@ -2650,8 +3850,8 @@ export default function DemoDash() {
                             <div className="text-base font-semibold text-white">{repo.name}</div>
                             <span className={`px-2 py-0.5 text-xs rounded-full ${
                               repoType === 'frontend' ? 'bg-green-500/20 text-green-400' :
-                              repoType === 'backend' ? 'bg-blue-500/20 text-blue-400' :
-                              repoType === 'fullstack' ? 'bg-purple-500/20 text-purple-400' :
+                              repoType === 'backend' ? 'bg-[#4C3BCF]/20 text-[#4C3BCF]' :
+                              repoType === 'fullstack' ? 'bg-[#4C3BCF]/20 text-[#4C3BCF]' :
                               'bg-gray-500/20 text-gray-400'
                             }`}>
                               {repoType}
@@ -2664,7 +3864,7 @@ export default function DemoDash() {
                           <div className="flex items-center gap-4 text-xs text-gray-500">
                             {repo.language && (
                               <div className="flex items-center gap-1">
-                                <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                                <span className="w-2 h-2 rounded-full bg-[#4C3BCF]"></span>
                                 <span>{repo.language}</span>
                               </div>
                             )}

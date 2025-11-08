@@ -13,6 +13,9 @@ from app.database.mongodb import (
     create_tasks, get_project_tasks, update_task, delete_task,
     get_weekly_deadlines, get_user_team_members, update_member_workload
 )
+from app.services.ai_service import create_deep_project_context
+from app.api.slack import get_token_for_user
+from bson import ObjectId
 
 logger = logging.getLogger(__name__)
 JWT_SECRET = os.getenv('FLASK_SECRET', 'change_this_secret')
@@ -558,48 +561,74 @@ def match_task_to_members(task, team_members):
     return matches[:3]  # Return top 3 matches
 
 
-@project_bp.route("/projects/<project_id>/tasks/pending-approval", methods=["GET"])
+@project_bp.route("/projects/<project_id>/tasks/pending-approval", methods=["GET", "OPTIONS"])
 def get_pending_approval_tasks(project_id):
     """Get all tasks pending approval for a project with suggested team members"""
+    if request.method == "OPTIONS":
+        return jsonify({"ok": True}), 200
+    
     auth_header = request.headers.get('Authorization')
     if not auth_header:
+        logger.error("❌ No authorization header provided")
         return jsonify({"error": "No authorization provided"}), 401
     
     try:
         # Verify JWT token
         token = auth_header.replace('Bearer ', '')
+        if not token:
+            logger.error("❌ Empty token provided")
+            return jsonify({"error": "Invalid authorization token"}), 401
+        
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         user_id = payload['user_id']
         
-        logger.info(f"📋 Fetching pending approval tasks for project {project_id}")
+        logger.info(f"📋 Fetching pending approval tasks for project {project_id}, user {user_id}")
         
-        tasks = get_project_tasks(project_id, status_filter="pending_approval")
+        # Get tasks
+        try:
+            tasks = get_project_tasks(project_id, status_filter="pending_approval")
+            logger.info(f"✅ Found {len(tasks)} pending approval tasks")
+        except Exception as e:
+            logger.error(f"❌ Error getting tasks: {str(e)}")
+            return jsonify({"error": f"Failed to fetch tasks: {str(e)}"}), 500
         
         # Get team members for matching
-        team_members = get_user_team_members(user_id)
+        try:
+            team_members = get_user_team_members(user_id)
+            logger.info(f"✅ Found {len(team_members)} team members for matching")
+        except Exception as e:
+            logger.error(f"❌ Error getting team members: {str(e)}")
+            # Continue without team members - just return tasks without suggestions
+            team_members = []
         
         # Match each task to team members
         tasks_with_suggestions = []
         for task in tasks:
-            suggestions = match_task_to_members(task, team_members)
-            task['suggested_members'] = [
-                {
-                    'name': m['member'].get('name', 'Unknown'),
-                    'email': m['member'].get('email', ''),
-                    'role': m['member'].get('role', ''),
-                    'skills': m['member'].get('skills', [])[:5],
-                    'score': m['score'],
-                    'match_reasons': m['match_reasons'],
-                    'status': m['member'].get('status', 'idle'),
-                    'idle_percentage': m['member'].get('idle_percentage', 100),
-                    'idle_hours': m['member'].get('idle_hours', 40),
-                    'current_load': m['member'].get('current_load', 0),
-                    'capacity': m['member'].get('capacity', 40)
-                }
-                for m in suggestions
-            ]
+            try:
+                suggestions = match_task_to_members(task, team_members)
+                task['suggested_members'] = [
+                    {
+                        'name': m['member'].get('name', 'Unknown'),
+                        'email': m['member'].get('email', ''),
+                        'role': m['member'].get('role', ''),
+                        'skills': m['member'].get('skills', [])[:5],
+                        'score': m['score'],
+                        'match_reasons': m['match_reasons'],
+                        'status': m['member'].get('status', 'idle'),
+                        'idle_percentage': m['member'].get('idle_percentage', 100),
+                        'idle_hours': m['member'].get('idle_hours', 40),
+                        'current_load': m['member'].get('current_load', 0),
+                        'capacity': m['member'].get('capacity', 40)
+                    }
+                    for m in suggestions
+                ]
+            except Exception as e:
+                logger.warning(f"⚠️ Error matching task {task.get('id', 'unknown')}: {str(e)}")
+                task['suggested_members'] = []
+            
             tasks_with_suggestions.append(task)
         
+        logger.info(f"✅ Returning {len(tasks_with_suggestions)} tasks with suggestions")
         return jsonify({
             "ok": True,
             "tasks": tasks_with_suggestions,
@@ -607,12 +636,15 @@ def get_pending_approval_tasks(project_id):
         })
         
     except jwt.ExpiredSignatureError:
+        logger.error("❌ Token expired")
         return jsonify({"error": "Token expired"}), 401
     except jwt.InvalidTokenError:
+        logger.error("❌ Invalid token")
         return jsonify({"error": "Invalid token"}), 401
     except Exception as e:
         logger.error(f"❌ Error fetching pending approval tasks: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Full traceback:")
+        return jsonify({"error": f"Failed to load pending tasks: {str(e)}"}), 500
 
 
 @project_bp.route("/projects/<project_id>/tasks/approve", methods=["POST"])
@@ -770,23 +802,35 @@ Please confirm receipt and provide updates as you progress."""
             }
             
             try:
-                # Join channel first
+                # Join channel first (required for bot to post)
                 join_url = "https://slack.com/api/conversations.join"
-                requests.post(join_url, headers=headers, json={"channel": channel_id})
-            except:
-                pass  # Ignore join errors
+                join_response = requests.post(join_url, headers=headers, json={"channel": channel_id}, timeout=5)
+                if not join_response.json().get('ok'):
+                    logger.warning(f"⚠️ Could not join channel {channel_id}, but continuing...")
+            except Exception as join_error:
+                logger.warning(f"⚠️ Error joining channel: {join_error}")
+                # Continue anyway - might already be in channel
             
-            response = requests.post(url, headers=headers, json=payload)
-            slack_response = response.json()
-            
-            if slack_response.get("ok"):
+            try:
+                response = requests.post(url, headers=headers, json=payload, timeout=10)
+                slack_response = response.json()
+                
+                if slack_response.get("ok"):
+                    approved_count += 1
+                    # Update task status to sent
+                    update_task(task_id, {"status": "sent_to_slack"})
+                    logger.info(f"✅ Task {task_id} approved and sent to Slack")
+                else:
+                    error_msg = slack_response.get('error', 'Unknown error')
+                    logger.error(f"❌ Failed to send task {task_id} to Slack: {error_msg}")
+                    # Still mark as approved even if Slack send failed
+                    approved_count += 1
+                    update_task(task_id, {"status": "approved"})
+            except Exception as send_error:
+                logger.error(f"❌ Error sending to Slack: {send_error}")
+                # Still mark as approved
                 approved_count += 1
-                # Update task status to sent
-                update_task(task_id, {"status": "sent_to_slack"})
-                logger.info(f"✅ Task {task_id} approved and sent to Slack")
-            else:
-                failed_tasks.append(task_id)
-                logger.error(f"❌ Failed to send task {task_id} to Slack: {slack_response.get('error')}")
+                update_task(task_id, {"status": "approved"})
         
         return jsonify({
             "ok": True,
@@ -834,6 +878,190 @@ def get_weekly_deadlines_route():
         return jsonify({"error": "Invalid token"}), 401
     except Exception as e:
         logger.error(f"❌ Error fetching weekly deadlines: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@project_bp.route("/projects/<project_id>/resolve-issue", methods=["POST"])
+def resolve_issue(project_id):
+    """Analyze issue question with project context and send solution to Slack"""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"error": "No authorization provided"}), 401
+    
+    try:
+        # Verify JWT token
+        token = auth_header.replace('Bearer ', '')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload['user_id']
+        
+        body = request.get_json()
+        question = body.get('question')
+        channel = body.get('channel')
+        
+        if not question or not channel:
+            return jsonify({"error": "question and channel are required"}), 400
+        
+        logger.info(f"🔍 Issue resolution request for project: {project_id}")
+        logger.info(f"❓ Question: {question}")
+        
+        # Get project
+        from app.database.mongodb import db
+        projects_collection = db['projects']
+        project = projects_collection.find_one({"_id": ObjectId(project_id), "user_id": user_id})
+        
+        if not project:
+            return jsonify({"error": "Project not found"}), 404
+        
+        # Get user's GitHub token
+        users_collection = db['users']
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+        github_token = user.get('github_token') if user else None
+        
+        if not github_token:
+            return jsonify({"error": "GitHub not connected"}), 400
+        
+        # Get Slack token
+        slack_token_info = get_token_for_user(user_id)
+        if not slack_token_info:
+            return jsonify({"error": "Slack not connected"}), 400
+        
+        slack_token = slack_token_info.get("bot_token") or slack_token_info.get("access_token")
+        
+        # Build project context from repos
+        project_context = ""
+        repos = project.get('repos', [])
+        
+        if repos:
+            logger.info(f"📦 Analyzing {len(repos)} repositories...")
+            for repo in repos[:3]:  # Limit to 3 repos to avoid timeout
+                try:
+                    full_name = repo.get('full_name') or repo.get('name', '')
+                    if '/' in full_name:
+                        owner, repo_name = full_name.split('/', 1)
+                        logger.info(f"🔍 Analyzing {owner}/{repo_name}...")
+                        context = create_deep_project_context(owner, repo_name, github_token)
+                        project_context += f"\n\n=== Repository: {full_name} ===\n{context}\n"
+                    else:
+                        logger.warning(f"⚠️ Invalid repo format: {full_name}")
+                except Exception as e:
+                    logger.error(f"❌ Error analyzing repo {repo.get('name')}: {str(e)}")
+                    continue
+        
+        # Get project tasks for additional context
+        tasks = get_project_tasks(project_id)
+        tasks_context = ""
+        if tasks:
+            tasks_context = "\n\n=== Project Tasks ===\n"
+            for task in tasks[:10]:  # Limit to 10 tasks
+                tasks_context += f"- {task.get('title', 'Untitled')}: {task.get('description', '')[:100]}\n"
+        
+        # Build AI prompt
+        full_context = f"""PROJECT CONTEXT:
+{project_context}
+
+{tasks_context}
+
+USER QUESTION:
+{question}
+
+Analyze the question in the context of the project repositories and tasks above. Provide a detailed, actionable solution. Format your response clearly with:
+1. Problem Analysis
+2. Root Cause (if applicable)
+3. Solution Steps
+4. Code examples (if relevant)
+5. Prevention tips (if applicable)
+
+Be specific and reference actual files/code from the repositories when relevant."""
+
+        # Call AI service
+        logger.info("🤖 Calling AI service for issue resolution...")
+        import requests
+        import os
+        
+        api_key = os.getenv('GEMINI_API_KEY')
+        if not api_key:
+            return jsonify({"error": "AI service not configured"}), 500
+        
+        api_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent'
+        headers = {'Content-Type': 'application/json'}
+        payload = {
+            "contents": [{
+                "parts": [{"text": full_context}]
+            }]
+        }
+        params = {'key': api_key}
+        
+        response = requests.post(api_url, headers=headers, json=payload, params=params, timeout=60)
+        
+        if response.status_code != 200:
+            logger.error(f"❌ AI API error: {response.status_code} - {response.text}")
+            return jsonify({"error": "AI service error"}), 500
+        
+        ai_response = response.json()
+        solution = ""
+        
+        if 'candidates' in ai_response and len(ai_response['candidates']) > 0:
+            solution = ai_response['candidates'][0]['content']['parts'][0]['text']
+        else:
+            return jsonify({"error": "No response from AI"}), 500
+        
+        # Format message for Slack
+        slack_message = f"""🔍 *Issue Resolution Request*
+
+*Question:*
+{question}
+
+*Solution:*
+{solution}
+
+---
+_Generated by Feeta AI based on your project context_"""
+        
+        # Send to Slack
+        logger.info(f"📤 Sending solution to Slack channel: {channel}")
+        
+        # Join channel first
+        try:
+            join_url = "https://slack.com/api/conversations.join"
+            join_headers = {"Authorization": f"Bearer {slack_token}", "Content-Type": "application/json"}
+            join_payload = {"channel": channel}
+            requests.post(join_url, headers=join_headers, json=join_payload, timeout=5)
+        except Exception as e:
+            logger.warning(f"⚠️ Could not join channel: {str(e)}")
+        
+        # Send message
+        url = "https://slack.com/api/chat.postMessage"
+        headers = {
+            "Authorization": f"Bearer {slack_token}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "channel": channel,
+            "text": slack_message,
+            "parse": "full"
+        }
+        
+        slack_response = requests.post(url, headers=headers, json=payload, timeout=10)
+        slack_data = slack_response.json()
+        
+        if slack_data.get("ok"):
+            logger.info("✅ Solution sent to Slack successfully")
+            return jsonify({
+                "ok": True,
+                "message": "Issue analyzed and solution sent to Slack",
+                "slack_ts": slack_data.get("ts")
+            })
+        else:
+            error_msg = slack_data.get('error', 'Unknown error')
+            logger.error(f"❌ Failed to send to Slack: {error_msg}")
+            return jsonify({"error": f"Failed to send to Slack: {error_msg}"}), 500
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+    except Exception as e:
+        logger.error(f"❌ Error resolving issue: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 

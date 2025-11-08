@@ -449,8 +449,17 @@ def create_tasks(project_id, subtasks, session_id=None):
                 logger.warning(f"⚠️ Skipping subtask with no title: {subtask}")
                 continue
             
+            # Ensure project_id is ObjectId for consistency
+            if isinstance(project_id, str) and ObjectId.is_valid(project_id):
+                project_id_obj = ObjectId(project_id)
+            elif isinstance(project_id, ObjectId):
+                project_id_obj = project_id
+            else:
+                logger.warning(f"⚠️ Invalid project_id format: {project_id}, storing as-is")
+                project_id_obj = project_id
+            
             task = {
-                "project_id": project_id,
+                "project_id": project_id_obj,
                 "title": title,
                 "description": subtask.get("description", ""),
                 "priority": subtask.get("priority", "medium"),
@@ -478,7 +487,17 @@ def create_tasks(project_id, subtasks, session_id=None):
 def get_project_tasks(project_id, status_filter=None):
     """Get all tasks for a project"""
     try:
-        query = {"project_id": project_id}
+        # Handle both string and ObjectId project_id
+        if isinstance(project_id, str) and ObjectId.is_valid(project_id):
+            project_id_obj = ObjectId(project_id)
+        elif isinstance(project_id, ObjectId):
+            project_id_obj = project_id
+        else:
+            # Try to match as string if ObjectId validation fails
+            logger.warning(f"⚠️ Invalid project_id format: {project_id}, trying as string")
+            project_id_obj = project_id
+        
+        query = {"project_id": project_id_obj}
         
         if status_filter:
             query["status"] = status_filter
@@ -488,11 +507,15 @@ def get_project_tasks(project_id, status_filter=None):
         for task in tasks:
             task['_id'] = str(task['_id'])
             task['id'] = str(task['_id'])
+            # Ensure project_id is also a string
+            if 'project_id' in task:
+                task['project_id'] = str(task['project_id'])
         
         logger.info(f"✅ Found {len(tasks)} tasks for project {project_id}")
         return tasks
     except Exception as e:
         logger.error(f"❌ Error getting tasks: {str(e)}")
+        logger.exception("Full traceback:")
         return []
 
 
