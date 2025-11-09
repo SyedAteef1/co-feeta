@@ -516,6 +516,12 @@
             <a href="#" className="hover:text-[#4C3BCF] transition-colors focus:outline-none">About</a>
             <a href="#" className="hover:text-[#4C3BCF] transition-colors focus:outline-none">Blog</a>
             <a href="#" className="hover:text-[#4C3BCF] transition-colors focus:outline-none">Contact</a>
+            <button 
+              onClick={() => router.push('/login')} 
+              className="bg-transparent border border-gray-700 hover:border-[#4C3BCF] px-6 py-2 rounded-lg transition-colors focus:outline-none hover:text-[#4C3BCF]"
+            >
+              Login
+            </button>
             <button onClick={navigateToDemo} className="bg-[#4C3BCF] hover:bg-[#4C3BCF]/80 px-6 py-2 rounded-lg transition-colors focus:outline-none">
               Book a call
             </button>

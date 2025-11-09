@@ -1104,7 +1104,7 @@ export default function DemoDash() {
     }
   }, []);
 
-  // Load dashboard data
+  // Load dashboard data - Enabled for Team Performance live data
   useEffect(() => {
     if (user) {
       loadDashboardData();
@@ -1210,78 +1210,19 @@ export default function DemoDash() {
           pending: pendingPercent
         });
 
-        // Generate activities from recent completed tasks (for Recent Activity section)
-        const recentTasks = allTasks
-          .filter(t => t.status === 'completed' || t.status === 'done')
-          .sort((a, b) => {
-            const dateA = new Date(a.updated_at || a.created_at || 0);
-            const dateB = new Date(b.updated_at || b.created_at || 0);
-            return dateB - dateA;
-          })
-          .slice(0, 5);
+        // Store actual task counts for Team Performance section (LIVE DATA)
+        const performanceData = {
+          completedCount: completedTasks,
+          inProgressCount: inProgressTasks,
+          pendingCount: pendingTasks,
+          totalCount: totalTasks
+        };
+        console.log('📊 Team Performance Data (LIVE):', performanceData);
+        console.log('📊 All Tasks:', allTasks.length, allTasks);
+        setTeamPerformanceData(performanceData);
 
-        const activities = recentTasks.map(task => {
-          const date = new Date(task.updated_at || task.created_at || Date.now());
-          const now = new Date();
-          const diffMs = now - date;
-          const diffMins = Math.floor(diffMs / 60000);
-          const diffHours = Math.floor(diffMs / 3600000);
-          const diffDays = Math.floor(diffMs / 86400000);
-
-          let timeStr = 'Just now';
-          if (diffMins < 1) timeStr = 'Just now';
-          else if (diffMins < 60) timeStr = `${diffMins}m ago`;
-          else if (diffHours < 24) timeStr = `${diffHours}h ago`;
-          else if (diffDays < 7) timeStr = `${diffDays}d ago`;
-          else timeStr = date.toLocaleDateString();
-
-          return {
-            time: timeStr,
-            user: task.assigned_to || 'Team',
-            action: task.title || 'Completed task'
-          };
-        });
-
-        setDashboardActivities(activities);
-
-        // Generate pending tasks for "Past Team Work" section
-        const pendingTasksForDisplay = allTasks
-          .filter(t => t.status === 'pending' || t.status === 'pending_approval')
-          .sort((a, b) => {
-            const dateA = new Date(a.created_at || a.updated_at || 0);
-            const dateB = new Date(b.created_at || b.updated_at || 0);
-            return dateB - dateA;
-          })
-          .slice(0, 10);
-
-        const pendingActivities = pendingTasksForDisplay.map(task => {
-          const date = new Date(task.created_at || task.updated_at || Date.now());
-          const now = new Date();
-          const diffMs = now - date;
-          const diffMins = Math.floor(diffMs / 60000);
-          const diffHours = Math.floor(diffMs / 3600000);
-          const diffDays = Math.floor(diffMs / 86400000);
-
-          let timeStr = 'Just now';
-          if (diffMins < 1) timeStr = 'Just now';
-          else if (diffMins < 60) timeStr = `${diffMins}m ago`;
-          else if (diffHours < 24) timeStr = `${diffHours}h ago`;
-          else if (diffDays < 7) timeStr = `${diffDays}d ago`;
-          else timeStr = date.toLocaleDateString();
-
-          return {
-            id: task._id || task.id,
-            time: timeStr,
-            user: task.assigned_to || 'Unassigned',
-            action: task.title || 'Untitled task',
-            description: task.description || '',
-            status: task.status || 'pending',
-            priority: task.priority || 'medium',
-            project: task.project_name || 'Unknown Project'
-          };
-        });
-
-        setPendingTasksForDisplay(pendingActivities);
+        // NOTE: Keeping dummy data for Recent Activities and Pending Tasks
+        // Only Team Performance section uses live data from API
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -2059,6 +2000,15 @@ export default function DemoDash() {
     setSelectedProject(project);
     setMessages([]);
     setSessionId(null);
+    
+    // Track project access time for recent projects sorting
+    const projectId = project._id || project.id;
+    if (projectId) {
+      const accessData = JSON.parse(localStorage.getItem('projectAccessTimes') || '{}');
+      accessData[projectId] = new Date().toISOString();
+      localStorage.setItem('projectAccessTimes', JSON.stringify(accessData));
+    }
+    
     // Load project messages if any
     loadProjectMessages(project);
   };
@@ -2532,19 +2482,174 @@ export default function DemoDash() {
 
   // Dashboard state
   const [dashboardStats, setDashboardStats] = useState({
-    activeProjects: 0,
-    priorityTasks: 0,
-    tasksCompleted: 0,
-    members: 0
+    activeProjects: 12,
+    priorityTasks: 18,
+    tasksCompleted: 24,
+    members: 8
   });
-  const [dashboardActivities, setDashboardActivities] = useState([]);
-  const [pendingTasksForDisplay, setPendingTasksForDisplay] = useState([]);
+  const [dashboardActivities, setDashboardActivities] = useState([
+    { time: '15m ago', user: 'Syed Ateef Quadri', action: 'completed user authentication module' },
+    { time: '45m ago', user: 'Md Suhail', action: 'finished API integration testing' },
+    { time: '1h ago', user: 'Syed Ateef Quadri', action: 'deployed new feature to staging' },
+    { time: '2h ago', user: 'Md Suhail', action: 'merged pull request #142' },
+    { time: '3h ago', user: 'Syed Ateef Quadri', action: 'optimized database queries' },
+    { time: '4h ago', user: 'Md Suhail', action: 'fixed critical security vulnerability' },
+    { time: '5h ago', user: 'Syed Ateef Quadri', action: 'implemented real-time notifications' },
+    { time: '6h ago', user: 'Md Suhail', action: 'updated user interface components' },
+    { time: '1d ago', user: 'Syed Ateef Quadri', action: 'completed backend API refactoring' },
+    { time: '1d ago', user: 'Md Suhail', action: 'added new dashboard analytics features' },
+    { time: '2d ago', user: 'Syed Ateef Quadri', action: 'resolved performance bottlenecks' },
+    { time: '2d ago', user: 'Md Suhail', action: 'integrated third-party payment gateway' }
+  ]);
+  const [pendingTasksForDisplay, setPendingTasksForDisplay] = useState([
+    {
+      id: 'demo-1',
+      time: '20m ago',
+      user: 'Syed Ateef Quadri',
+      action: 'Implement user dashboard analytics',
+      description: 'Add real-time analytics charts and data visualization components to the user dashboard with interactive graphs',
+      status: 'pending_approval',
+      priority: 'high'
+    },
+    {
+      id: 'demo-2',
+      time: '45m ago',
+      user: 'Md Suhail',
+      action: 'Fix authentication bug in login flow',
+      description: 'Resolve issue with token expiration handling in the authentication middleware and improve session management',
+      status: 'pending',
+      priority: 'urgent'
+    },
+    {
+      id: 'demo-3',
+      time: '1h ago',
+      user: 'Syed Ateef Quadri',
+      action: 'Update API documentation',
+      description: 'Document new endpoints and update existing API reference documentation with code examples',
+      status: 'pending',
+      priority: 'medium'
+    },
+    {
+      id: 'demo-4',
+      time: '2h ago',
+      user: 'Md Suhail',
+      action: 'Optimize database queries',
+      description: 'Review and optimize slow database queries for better performance and add proper indexing',
+      status: 'pending_approval',
+      priority: 'high'
+    },
+    {
+      id: 'demo-5',
+      time: '3h ago',
+      user: 'Syed Ateef Quadri',
+      action: 'Design new notification system',
+      description: 'Create a comprehensive notification system with real-time updates and user preferences',
+      status: 'pending',
+      priority: 'medium'
+    },
+    {
+      id: 'demo-6',
+      time: '4h ago',
+      user: 'Md Suhail',
+      action: 'Implement file upload feature',
+      description: 'Add secure file upload functionality with progress tracking and validation',
+      status: 'pending',
+      priority: 'high'
+    },
+    {
+      id: 'demo-7',
+      time: '5h ago',
+      user: 'Syed Ateef Quadri',
+      action: 'Refactor user profile component',
+      description: 'Improve user profile component with better UI/UX and add profile picture upload',
+      status: 'pending_approval',
+      priority: 'medium'
+    },
+    {
+      id: 'demo-8',
+      time: '6h ago',
+      user: 'Md Suhail',
+      action: 'Add email notification service',
+      description: 'Integrate email service for sending notifications and alerts to users',
+      status: 'pending',
+      priority: 'high'
+    },
+    {
+      id: 'demo-9',
+      time: '7h ago',
+      user: 'Syed Ateef Quadri',
+      action: 'Create user onboarding flow',
+      description: 'Build an interactive onboarding experience for new users with step-by-step tutorials',
+      status: 'pending',
+      priority: 'medium'
+    },
+    {
+      id: 'demo-10',
+      time: '8h ago',
+      user: 'Md Suhail',
+      action: 'Implement search functionality',
+      description: 'Add advanced search with filters, sorting, and autocomplete for better user experience',
+      status: 'pending_approval',
+      priority: 'high'
+    },
+    {
+      id: 'demo-11',
+      time: '1d ago',
+      user: 'Syed Ateef Quadri',
+      action: 'Set up CI/CD pipeline',
+      description: 'Configure continuous integration and deployment pipeline for automated testing and releases',
+      status: 'pending',
+      priority: 'urgent'
+    },
+    {
+      id: 'demo-12',
+      time: '1d ago',
+      user: 'Md Suhail',
+      action: 'Add dark mode support',
+      description: 'Implement dark mode theme with user preference toggle and system detection',
+      status: 'pending',
+      priority: 'medium'
+    },
+    {
+      id: 'demo-13',
+      time: '2d ago',
+      user: 'Syed Ateef Quadri',
+      action: 'Build mobile responsive layout',
+      description: 'Ensure all components are fully responsive and optimized for mobile devices',
+      status: 'pending_approval',
+      priority: 'high'
+    },
+    {
+      id: 'demo-14',
+      time: '2d ago',
+      user: 'Md Suhail',
+      action: 'Integrate payment gateway',
+      description: 'Add secure payment processing with multiple payment methods and subscription management',
+      status: 'pending',
+      priority: 'high'
+    },
+    {
+      id: 'demo-15',
+      time: '3d ago',
+      user: 'Syed Ateef Quadri',
+      action: 'Create admin dashboard',
+      description: 'Build comprehensive admin panel with user management, analytics, and system controls',
+      status: 'pending',
+      priority: 'medium'
+    }
+  ]);
   const [dashboardProjects, setDashboardProjects] = useState([]);
   const [projectTasks, setProjectTasks] = useState({}); // {projectId: [{title, status, ...}]}
   const [pieChartData, setPieChartData] = useState({
     completed: 65,
     inProgress: 25,
     pending: 10
+  });
+  const [teamPerformanceData, setTeamPerformanceData] = useState({
+    completedCount: 24,
+    inProgressCount: 12,
+    pendingCount: 15,
+    totalCount: 51
   });
   const [userName, setUserName] = useState('User');
 
@@ -2874,7 +2979,30 @@ export default function DemoDash() {
                   </div>
             ) : (
               <div className="space-y-2">
-                {projects.map((project, idx) => (
+                {(() => {
+                  // Sort projects by most recently accessed
+                  const accessData = JSON.parse(localStorage.getItem('projectAccessTimes') || '{}');
+                  const sortedProjects = [...projects].sort((a, b) => {
+                    const aId = a._id || a.id;
+                    const bId = b._id || b.id;
+                    const aAccess = accessData[aId] ? new Date(accessData[aId]).getTime() : 0;
+                    const bAccess = accessData[bId] ? new Date(accessData[bId]).getTime() : 0;
+                    
+                    // If both have access times, sort by most recent
+                    if (aAccess && bAccess) {
+                      return bAccess - aAccess;
+                    }
+                    // If only one has access time, prioritize it
+                    if (aAccess && !bAccess) return -1;
+                    if (!aAccess && bAccess) return 1;
+                    
+                    // If neither has access time, sort by updated_at or created_at
+                    const aDate = new Date(a.updated_at || a.created_at || a.createdAt || 0).getTime();
+                    const bDate = new Date(b.updated_at || b.created_at || b.createdAt || 0).getTime();
+                    return bDate - aDate;
+                  });
+                  
+                  return sortedProjects.map((project, idx) => (
                   <button 
                     key={project._id || project.id || idx} 
                     onClick={() => selectProject(project)}
@@ -2896,7 +3024,8 @@ export default function DemoDash() {
                       <path d="M6 12L10 8L6 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </button>
-                ))}
+                  ));
+                })()}
                   </div>
             )}
                 </div>
@@ -3228,99 +3357,140 @@ export default function DemoDash() {
           </div>
 
           {/* Progress & Activity */}
-          <div className="grid grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-3 gap-6 mb-8 items-stretch">
             {/* Progress Report - Radial Bar Chart */}
             <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-8 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all duration-300 flex flex-col">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className="text-xl font-semibold">Team Performance</h3>
-                  <p className="text-sm text-gray-400 mt-1">January - June 2024</p>
+                  <p className="text-sm text-gray-400 mt-1">Real-time Task Status</p>
                 </div>
                 <button className="flex items-center gap-2 px-3 py-1.5 text-xs bg-[#1a1a1a] hover:bg-[#222222] rounded-lg text-gray-400 transition-colors">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                     <rect x="2" y="3" width="10" height="8" rx="1" stroke="currentColor" strokeWidth="1.2"/>
                     <path d="M4 1V3M10 1V3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
                   </svg>
-                  <span>This Month</span>
+                  <span>Live Data</span>
                 </button>
               </div>
               <div className="flex-1 flex flex-col items-center justify-center pb-0 min-h-[400px]">
-                {/* Radial Bar Chart using recharts */}
-                {(() => {
-                  // Prepare chart data from pieChartData
-                  const chartData = [
-                    { 
-                      name: 'completed', 
-                      value: pieChartData.completed, 
-                      fill: '#4C3BCF' 
-                    },
-                    { 
-                      name: 'in progress', 
-                      value: pieChartData.inProgress, 
-                      fill: '#3B82F6' 
-                    },
-                    { 
-                      name: 'pending', 
-                      value: pieChartData.pending, 
-                      fill: '#10B981' 
-                    }
-                  ];
-
-                  return (
-                    <div className="w-full h-full max-w-[450px] max-h-[450px] aspect-square flex items-center justify-center mx-auto">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RadialBarChart
-                          data={chartData}
-                          startAngle={-90}
-                          endAngle={380}
-                          innerRadius={40}
-                          outerRadius={140}
-                        >
-                          <RadialBar 
-                            dataKey="value" 
-                            background={{ fill: 'rgba(255, 255, 255, 0.08)' }}
-                            cornerRadius={6}
-                            stroke="#1f1f1f"
-                            strokeWidth={1}
-                          >
-                            <LabelList
-                              position="insideStart"
-                              dataKey="name"
-                              className="fill-white capitalize"
-                              style={{
-                                mixBlendMode: 'luminosity',
-                                textShadow: '0 2px 4px rgba(0, 0, 0, 0.9)',
-                                fontSize: '13px',
-                                fontWeight: '600'
-                              }}
-                            />
-                          </RadialBar>
-                        </RadialBarChart>
-                      </ResponsiveContainer>
+                {/* Individual Status Circles */}
+                <div className="w-full max-w-[500px] flex flex-col gap-8 items-center justify-center">
+                  {/* Completed Circle */}
+                  <div className="flex items-center gap-6 w-full group">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] flex items-center justify-center shadow-lg shadow-[#4C3BCF]/30 transition-all duration-500 group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-[#4C3BCF]/50">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-white">{teamPerformanceData.completedCount || 0}</div>
+                          <div className="text-xs text-white/80 mt-1 font-medium">Completed</div>
+                        </div>
+                      </div>
+                      <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-green-500 border-4 border-[#0f0f0f] animate-pulse"></div>
                     </div>
-                  );
-                })()}
-                
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-gray-300 mb-1">Completed Tasks</div>
+                      <div className="text-xs text-gray-400">
+                        {teamPerformanceData.totalCount > 0 
+                          ? `${Math.round((teamPerformanceData.completedCount / teamPerformanceData.totalCount) * 100)}% of total tasks`
+                          : 'No tasks yet'}
+                      </div>
+                      <div className="mt-2 h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-[#4C3BCF] to-[#6B5CE6] rounded-full transition-all duration-700 ease-out"
+                          style={{ width: `${teamPerformanceData.totalCount > 0 ? (teamPerformanceData.completedCount / teamPerformanceData.totalCount) * 100 : 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* In Progress Circle */}
+                  <div className="flex items-center gap-6 w-full group">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#3B82F6] to-[#60A5FA] flex items-center justify-center shadow-lg shadow-[#3B82F6]/30 transition-all duration-500 group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-[#3B82F6]/50">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-white">{teamPerformanceData.inProgressCount || 0}</div>
+                          <div className="text-xs text-white/80 mt-1 font-medium">In Progress</div>
+                    </div>
+                      </div>
+                      <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-blue-500 border-4 border-[#0f0f0f] animate-pulse"></div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-gray-300 mb-1">In Progress Tasks</div>
+                      <div className="text-xs text-gray-400">
+                        {teamPerformanceData.totalCount > 0 
+                          ? `${Math.round((teamPerformanceData.inProgressCount / teamPerformanceData.totalCount) * 100)}% of total tasks`
+                          : 'No tasks yet'}
+                      </div>
+                      <div className="mt-2 h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-[#3B82F6] to-[#60A5FA] rounded-full transition-all duration-700 ease-out"
+                          style={{ width: `${teamPerformanceData.totalCount > 0 ? (teamPerformanceData.inProgressCount / teamPerformanceData.totalCount) * 100 : 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pending Circle */}
+                  <div className="flex items-center gap-6 w-full group">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#F59E0B] to-[#FBBF24] flex items-center justify-center shadow-lg shadow-[#F59E0B]/30 transition-all duration-500 group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-[#F59E0B]/50">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-white">{teamPerformanceData.pendingCount || 0}</div>
+                          <div className="text-xs text-white/80 mt-1 font-medium">Pending</div>
+                        </div>
+                      </div>
+                      <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-yellow-500 border-4 border-[#0f0f0f] animate-pulse"></div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-gray-300 mb-1">Pending Tasks</div>
+                      <div className="text-xs text-gray-400">
+                        {teamPerformanceData.totalCount > 0 
+                          ? `${Math.round((teamPerformanceData.pendingCount / teamPerformanceData.totalCount) * 100)}% of total tasks`
+                          : 'No tasks yet'}
+                      </div>
+                      <div className="mt-2 h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-[#F59E0B] to-[#FBBF24] rounded-full transition-all duration-700 ease-out"
+                          style={{ width: `${teamPerformanceData.totalCount > 0 ? (teamPerformanceData.pendingCount / teamPerformanceData.totalCount) * 100 : 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                    
                 {/* Footer */}
                 <div className="w-full mt-8 flex flex-col gap-2 text-sm px-2">
                   <div className="flex items-center gap-2 leading-none font-medium text-gray-300">
-                    <TrendingUp className="h-4 w-4 text-green-400" />
-                    Trending up by 5.2% this month
+                    {teamPerformanceData.pendingCount > 0 ? (
+                      <>
+                        <TrendingUp className="h-4 w-4 text-yellow-400" />
+                        {teamPerformanceData.pendingCount} task{teamPerformanceData.pendingCount !== 1 ? 's' : ''} pending completion
+                      </>
+                    ) : (
+                      <>
+                        <TrendingUp className="h-4 w-4 text-green-400" />
+                        All tasks completed
+                      </>
+                    )}
                   </div>
                   <div className="text-xs text-gray-400 leading-none">
-                    Showing total tasks for the last 6 months
-                  </div>
+                    {teamPerformanceData.totalCount > 0 ? (
+                      `Total: ${teamPerformanceData.totalCount} tasks • ${teamPerformanceData.completedCount} completed • ${teamPerformanceData.inProgressCount} in progress`
+                    ) : (
+                      'No tasks assigned yet'
+                    )}
                 </div>
-              </div>
-            </div>
-
+                    </div>
+                    </div>
+                  </div>
+                  
             {/* Pending Tasks */}
-            <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all duration-300">
-              <div className="flex items-center justify-between mb-6">
+            <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all duration-300 flex flex-col">
+              <div className="flex items-center justify-between mb-6 flex-shrink-0">
                 <h3 className="text-lg font-semibold">Pending Tasks</h3>
                 <button className="text-xs text-gray-400 hover:text-white transition-colors">View All</button>
               </div>
-              <div className="space-y-4 max-h-[340px] overflow-y-auto custom-scrollbar">
+              <div className="space-y-4 overflow-y-auto custom-scrollbar" style={{ maxHeight: '600px', minHeight: '500px' }}>
                 {pendingTasksForDisplay.length > 0 ? pendingTasksForDisplay.map((task, i) => (
                   <div key={task.id || i} className="flex items-start gap-3 group pb-3 border-b border-[#1f1f1f]/30 last:border-0">
                     <div className="relative flex-shrink-0">
@@ -3365,26 +3535,29 @@ export default function DemoDash() {
             </div>
 
             {/* Recent Activity */}
-            <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all duration-300">
-              <div className="flex items-center justify-between mb-6">
+            <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all duration-300 flex flex-col">
+              <div className="flex items-center justify-between mb-6 flex-shrink-0">
                 <h3 className="text-lg font-semibold">Recent activity</h3>
-                <button className="text-xs text-gray-400 hover:text-white transition-colors">View All</button>
+                <button className="text-xs text-gray-400 hover:text-white transition-colors duration-200">View All</button>
               </div>
-              <div className="space-y-4">
-                {dashboardActivities.length > 0 ? dashboardActivities.slice(0, 4).map((activity, i) => (
-                  <div key={i} className="flex items-start gap-3 group">
-                    <div className="w-2 h-2 rounded-full bg-gray-600 mt-1.5 flex-shrink-0"></div>
+              <div className="space-y-4 overflow-y-auto custom-scrollbar flex-1" style={{ maxHeight: '500px' }}>
+                {dashboardActivities.length > 0 ? dashboardActivities.map((activity, i) => (
+                  <div key={i} className="flex items-start gap-3 group p-3 rounded-lg hover:bg-[#1a1a1a]/50 transition-all duration-200 cursor-pointer">
+                    <div className="relative flex-shrink-0 mt-1.5">
+                      <div className="w-2 h-2 rounded-full bg-gradient-to-r from-[#4C3BCF] to-[#6B5CE6] group-hover:scale-125 transition-transform duration-200"></div>
+                      <div className="absolute inset-0 w-2 h-2 rounded-full bg-[#4C3BCF] opacity-50 group-hover:opacity-75 animate-pulse"></div>
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-xs text-gray-500">{activity.time}</span>
-                        <button className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white transition-opacity">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-500 font-medium">{activity.time}</span>
+                        <button className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white transition-all duration-200 p-1 rounded hover:bg-[#2a2a2a]">
                           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                             <path d="M10 4L4 10M4 4L10 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                           </svg>
                         </button>
                       </div>
-                      <p className="text-sm">
-                        <span className="font-medium">{activity.user}</span>
+                      <p className="text-sm leading-relaxed">
+                        <span className="font-semibold text-white group-hover:text-[#6B5CE6] transition-colors duration-200">{activity.user}</span>
                         <span className="text-gray-400">, {activity.action}</span>
                       </p>
                     </div>
@@ -3901,11 +4074,26 @@ export default function DemoDash() {
               </div>
 
               {(() => {
-                // Get latest 2 projects sorted by created_at
+                // Get latest 2 projects sorted by most recently accessed
+                const accessData = JSON.parse(localStorage.getItem('projectAccessTimes') || '{}');
                 const sortedProjects = [...projects].sort((a, b) => {
-                  const dateA = new Date(a.created_at || a.createdAt || 0);
-                  const dateB = new Date(b.created_at || b.createdAt || 0);
-                  return dateB - dateA; // Most recent first
+                  const aId = a._id || a.id;
+                  const bId = b._id || b.id;
+                  const aAccess = accessData[aId] ? new Date(accessData[aId]).getTime() : 0;
+                  const bAccess = accessData[bId] ? new Date(accessData[bId]).getTime() : 0;
+                  
+                  // If both have access times, sort by most recent
+                  if (aAccess && bAccess) {
+                    return bAccess - aAccess;
+                  }
+                  // If only one has access time, prioritize it
+                  if (aAccess && !bAccess) return -1;
+                  if (!aAccess && bAccess) return 1;
+                  
+                  // If neither has access time, sort by updated_at or created_at
+                  const aDate = new Date(a.updated_at || a.created_at || a.createdAt || 0).getTime();
+                  const bDate = new Date(b.updated_at || b.created_at || b.createdAt || 0).getTime();
+                  return bDate - aDate;
                 });
                 const recentProjects = sortedProjects.slice(0, 2);
 
