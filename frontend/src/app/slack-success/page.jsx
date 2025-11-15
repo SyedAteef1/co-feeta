@@ -54,7 +54,7 @@ function SlackSuccessContent() {
     setStatus('Loading channels...');
     
     // Fetch channels
-    fetch(`http://localhost:5000/api/list_conversations?user_id=${currentUserId}`)
+    fetch(`https://localhost:5000/api/list_conversations?user_id=${currentUserId}`)
       .then((r) => {
         console.log('API Response status:', r.status);
         return r.json();
@@ -94,7 +94,7 @@ function SlackSuccessContent() {
       return;
     }
     
-    fetch(`http://localhost:5000/api/channel_members?user_id=${currentUserId}&channel=${selectedChannel}`)
+    fetch(`https://localhost:5000/api/channel_members?user_id=${currentUserId}&channel=${selectedChannel}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.ok && data.members) {
@@ -173,7 +173,7 @@ function SlackSuccessContent() {
       addLog(`Error Type: ${e.name}`, "error");
       if (e.message.includes('Failed to fetch')) {
         addLog("Possible causes: Backend not running or CORS issue", "error");
-        addLog("Solution: Make sure backend is running on http://localhost:5000", "info");
+        addLog("Solution: Make sure backend is running on https://localhost:5000", "info");
       }
       setStatus("AI error: " + e.message);
     } finally {
@@ -192,7 +192,7 @@ function SlackSuccessContent() {
     const currentUserId = user_id || (typeof window !== 'undefined' ? localStorage.getItem('slack_user_id') : null);
     
     try {
-      const res = await fetch("http://localhost:5000/api/send_message", {
+      const res = await fetch("https://localhost:5000/api/send_message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

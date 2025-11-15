@@ -4,6 +4,10 @@ import logging
 import json
 import re
 from datetime import datetime
+import vertexai
+from vertexai.generative_models import GenerativeModel
+
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 from app.database.mongodb import (
     save_repo_context, get_repo_context, update_repo_context,
     save_conversation_history, get_conversation_history as db_get_conversation_history
@@ -12,7 +16,11 @@ from app.database.mongodb import (
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(name)s] - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+GCP_PROJECT_ID = os.getenv('GCP_PROJECT_ID', 'your-project-id')
+GCP_LOCATION = os.getenv('GCP_LOCATION', 'us-central1')
+
+vertexai.init(project=GCP_PROJECT_ID, location=GCP_LOCATION)
+logger.info(f"🔑 Using Vertex AI with project: {GCP_PROJECT_ID}, location: {GCP_LOCATION}")
 
 # Store sessions in memory (use Redis in production)
 task_sessions = {}
@@ -36,6 +44,10 @@ def get_conversation_history(session_id):
 def parse_json_from_text(text, context="response"):
     """Extract and parse JSON from text with error recovery"""
     try:
+        # Remove markdown code blocks if present
+        text = re.sub(r'```json\s*', '', text)
+        text = re.sub(r'```\s*$', '', text)
+        
         # Try to find JSON in the text
         json_match = re.search(r'\{[\s\S]*\}', text)
         if not json_match:
@@ -53,11 +65,35 @@ def parse_json_from_text(text, context="response"):
             logger.error(f"📄 Problematic JSON snippet: ...{json_str[max(0, e.pos-100):min(len(json_str), e.pos+100)]}...")
             
             # Try to fix common JSON errors
+            fixed_json = json_str
+            
             # Remove trailing commas before } or ]
-            fixed_json = re.sub(r',(\s*[}\]])', r'\1', json_str)
+            fixed_json = re.sub(r',(\s*[}\]])', r'\1', fixed_json)
+            
             # Remove comments if any
             fixed_json = re.sub(r'//.*?\n', '\n', fixed_json)
             fixed_json = re.sub(r'/\*.*?\*/', '', fixed_json, flags=re.DOTALL)
+            
+            # Fix unescaped quotes in strings (common issue)
+            # This is a simple heuristic - replace " with ' inside string values
+            fixed_json = re.sub(r'"([^"]*?)"([^":,\]\}]*?)"', r'"\1\'\2"', fixed_json)
+            
+            # Try to truncate at last valid closing brace if JSON is incomplete
+            if e.msg == "Expecting ',' delimiter" or "Expecting" in e.msg:
+                # Find the last complete object/array
+                brace_count = 0
+                last_valid_pos = 0
+                for i, char in enumerate(fixed_json):
+                    if char == '{':
+                        brace_count += 1
+                    elif char == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            last_valid_pos = i + 1
+                
+                if last_valid_pos > 0 and last_valid_pos < len(fixed_json):
+                    logger.info(f"🔧 Truncating JSON at position {last_valid_pos}")
+                    fixed_json = fixed_json[:last_valid_pos]
             
             try:
                 logger.info("🔧 Attempting to fix JSON errors...")
@@ -107,6 +143,7 @@ def analyze_task_with_llm(task, session_id=None, repositories=None, github_token
     logger.info("="*60)
     logger.info(f"📝 Input Task: {task}")
     logger.info(f"🔑 Session ID: {session_id}")
+    logger.info(f"🤖 Gemini API Key: {'✅ Set' if GEMINI_API_KEY else '❌ Missing'}")
     
     # Handle multiple repositories (frontend + backend)
     multi_repo_context = {}
@@ -238,38 +275,15 @@ Respond with valid JSON:
 }}"""
     
     try:
-        api_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent'
-        
         # Detect task type
         logger.info("🚀 Calling Gemini for task type detection...")
-        response = requests.post(
-            api_url,
-            headers={'Content-Type': 'application/json'},
-            params={'key': GEMINI_API_KEY},
-            json={
-                'contents': [{'parts': [{'text': type_detection_prompt}]}],
-                'generationConfig': {'temperature': 0.3, 'maxOutputTokens': 512}
-            },
-            timeout=60
+        model = GenerativeModel('gemini-2.0-flash-exp')
+        response = model.generate_content(
+            type_detection_prompt,
+            generation_config={'temperature': 0.3, 'max_output_tokens': 512}
         )
         
-        data = response.json()
-        
-        # Check for errors in response
-        if 'error' in data:
-            error_msg = data['error'].get('message', 'Unknown error')
-            logger.error(f"❌ Gemini API Error: {error_msg}")
-            raise Exception(f"Gemini API error: {error_msg}")
-        
-        # Check if candidates exist
-        if 'candidates' not in data or not data['candidates']:
-            logger.error(f"❌ No candidates in response. Full response: {json.dumps(data)}")
-            if 'promptFeedback' in data:
-                feedback = data['promptFeedback']
-                logger.error(f"⚠️ Prompt Feedback: {json.dumps(feedback)}")
-            raise Exception("Gemini API returned no candidates")
-        
-        text = data['candidates'][0]['content']['parts'][0]['text']
+        text = response.text
         logger.info(f"📝 Task Type Response: {text[:500]}...")
         
         task_type_info = parse_json_from_text(text, "task type detection")
@@ -442,24 +456,13 @@ Return JSON:
         
         # Call Gemini for clarity analysis
         logger.info("🚀 Calling Gemini for clarity analysis...")
-        response = requests.post(
-            api_url,
-            headers={'Content-Type': 'application/json'},
-            params={'key': GEMINI_API_KEY},
-            json={
-                'contents': [{'parts': [{'text': clarity_prompt}]}],
-                'generationConfig': {'temperature': 0.2, 'maxOutputTokens': 512}
-            },
-            timeout=60
+        model = GenerativeModel('gemini-2.0-flash-exp')
+        response = model.generate_content(
+            clarity_prompt,
+            generation_config={'temperature': 0.2, 'max_output_tokens': 512}
         )
         
-        data = response.json()
-        if 'error' in data:
-            raise Exception(f"Gemini API error: {data['error'].get('message','')}")
-        if 'candidates' not in data or not data['candidates']:
-            raise Exception("Gemini API returned no candidates for clarity analysis")
-        
-        text = data['candidates'][0]['content']['parts'][0]['text']
+        text = response.text
         logger.info(f"📝 Clarity Analysis Response: {text[:500]}...")
         
         # Parse strict JSON (will raise if model doesn't follow rules)
@@ -588,36 +591,13 @@ Respond ONLY with valid JSON:
 }}"""
         
         logger.info("🚀 Calling Gemini for deep analysis...")
-        api_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent'
-        response = requests.post(
-            api_url,
-            headers={'Content-Type': 'application/json'},
-            params={'key': GEMINI_API_KEY},
-            json={
-                'contents': [{'parts': [{'text': prompt}]}],
-                'generationConfig': {'temperature': 0.1, 'maxOutputTokens': 4096}
-            },
-            timeout=30
+        model = GenerativeModel('gemini-2.0-flash-exp')
+        response = model.generate_content(
+            prompt,
+            generation_config={'temperature': 0.1, 'max_output_tokens': 4096}
         )
         
-        data = response.json()
-        logger.info(f"📦 Gemini Response Keys: {list(data.keys())}")
-        
-        # Check for errors in response
-        if 'error' in data:
-            error_msg = data['error'].get('message', 'Unknown error')
-            logger.error(f"❌ Gemini API Error: {error_msg}")
-            raise Exception(f"Gemini API error: {error_msg}")
-        
-        # Check if candidates exist
-        if 'candidates' not in data or not data['candidates']:
-            logger.error(f"❌ No candidates in deep analysis response: {json.dumps(data)}")
-            if 'promptFeedback' in data:
-                feedback = data['promptFeedback']
-                logger.error(f"⚠️ Prompt Feedback: {json.dumps(feedback)}")
-            raise Exception("Gemini API returned no candidates for deep analysis")
-        
-        text = data['candidates'][0]['content']['parts'][0]['text']
+        text = response.text
         logger.info(f"📝 Deep Analysis Response: {text[:500]}...")
         
         project_context = parse_json_from_text(text, "deep analysis")
@@ -760,6 +740,14 @@ Build Process: {repo_context.get('deployment_info', {}).get('build_process', 'Un
     
     prompt = f"""You are a senior software architect with expertise in ALL programming languages and frameworks. Create a precise implementation plan based on the ACTUAL project analysis.
 
+CRITICAL JSON FORMATTING RULES:
+- Return ONLY valid JSON - no markdown, no code blocks, no extra text
+- Escape all quotes inside string values using backslash (\")
+- Do NOT use trailing commas before closing braces or brackets
+- Keep descriptions concise (under 200 characters) to avoid formatting issues
+- If a description contains quotes, use single quotes (') instead
+- Ensure all arrays and objects are properly closed
+
 CURRENT DATE: {current_date_str} (Use this as the starting point for all deadline calculations)
 
 TASK: "{task}"
@@ -863,40 +851,13 @@ Return ONLY valid JSON:
 
     try:
         logger.info("🚀 Calling Gemini API for implementation plan...")
-        api_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent'
-        
-        response = requests.post(
-            api_url,
-            headers={'Content-Type': 'application/json'},
-            params={'key': GEMINI_API_KEY},
-            json={
-                'contents': [{'parts': [{'text': prompt}]}],
-                'generationConfig': {'temperature': 0.6, 'maxOutputTokens': 2048}
-            },
-            timeout=20
+        model = GenerativeModel('gemini-2.0-flash-exp')
+        response = model.generate_content(
+            prompt,
+            generation_config={'temperature': 0.6, 'max_output_tokens': 2048}
         )
         
-        data = response.json()
-        logger.info(f"✅ Gemini Response Status: {response.status_code}")
-        logger.info(f"📦 Response Keys: {list(data.keys())}")
-        
-        # Check for errors in response
-        if 'error' in data:
-            error_msg = data['error'].get('message', 'Unknown error')
-            logger.error(f"❌ Gemini API Error: {error_msg}")
-            raise Exception(f"Gemini API error: {error_msg}")
-        
-        # Check if candidates exist
-        if 'candidates' not in data or not data.get('candidates'):
-            logger.error(f"❌ No candidates in plan generation response: {json.dumps(data)}")
-            if 'promptFeedback' in data:
-                feedback = data['promptFeedback']
-                logger.error(f"⚠️ Prompt Feedback: {json.dumps(feedback)}")
-                if 'blockReason' in feedback:
-                    raise Exception(f"Content blocked: {feedback['blockReason']}")
-            raise Exception("Gemini API returned no candidates for plan generation")
-        
-        text = data['candidates'][0]['content']['parts'][0]['text']
+        text = response.text
         logger.info(f"📝 Plan Response Preview: {text[:200]}...")
         
         result = parse_json_from_text(text, "plan generation")
@@ -966,33 +927,18 @@ Generate a JSON response with this structure:
 Keep updates brief (max 15 words each). Return ONLY valid JSON, no markdown, no code blocks."""
         
         logger.info("🚀 Calling Gemini API for summary...")
-        api_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent'
-        
-        response = requests.post(
-            api_url,
-            headers={'Content-Type': 'application/json'},
-            params={'key': GEMINI_API_KEY},
-            json={
-                'contents': [{'parts': [{'text': prompt}]}],
-                'generationConfig': {
-                    'temperature': 0.3,
-                    'topK': 40,
-                    'topP': 0.95,
-                    'maxOutputTokens': 2048
-                }
-            },
-            timeout=30
+        model = GenerativeModel('gemini-2.0-flash-exp')
+        response = model.generate_content(
+            prompt,
+            generation_config={
+                'temperature': 0.3,
+                'top_k': 40,
+                'top_p': 0.95,
+                'max_output_tokens': 2048
+            }
         )
         
-        if response.status_code != 200:
-            raise Exception(f"Gemini API returned status {response.status_code}")
-        
-        response_data = response.json()
-        
-        if 'candidates' not in response_data:
-            raise Exception("No candidates in Gemini response")
-        
-        text = response_data['candidates'][0]['content']['parts'][0]['text']
+        text = response.text
         logger.info(f"📝 Summary Response Preview: {text[:200]}...")
         
         result = parse_json_from_text(text, "slack summary")
@@ -1014,3 +960,35 @@ Keep updates brief (max 15 words each). Return ONLY valid JSON, no markdown, no 
             "action_items": [],
             "error": str(e)
         }
+
+def send_periodic_followup(session_id, callback_url, interval=10):
+    """
+    Send follow-up requests every 10 seconds
+    
+    Args:
+        session_id: Session identifier
+        callback_url: URL to send follow-up requests to
+        interval: Interval in seconds (default: 10)
+    """
+    import threading
+    import time
+    
+    def followup_worker():
+        while True:
+            try:
+                logger.info(f"🔄 Sending follow-up for session {session_id}")
+                response = requests.post(
+                    callback_url,
+                    json={"session_id": session_id, "type": "followup"},
+                    timeout=5
+                )
+                logger.info(f"✅ Follow-up sent: {response.status_code}")
+            except Exception as e:
+                logger.error(f"❌ Follow-up error: {str(e)}")
+            
+            time.sleep(interval)
+    
+    thread = threading.Thread(target=followup_worker, daemon=True)
+    thread.start()
+    logger.info(f"🚀 Started periodic follow-up every {interval}s for session {session_id}")
+    return thread

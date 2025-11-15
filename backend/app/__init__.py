@@ -39,10 +39,10 @@ def create_app():
         logger.error(f"❌ Configuration Error: {e}")
         raise
     
-    # Setup CORS
+    # Setup CORS - Allow all origins for development
     CORS(app, 
          supports_credentials=True,
-         origins=['http://localhost:3000', 'https://localhost:3000', 'http://127.0.0.1:3000'],
+         origins='*',
          allow_headers=['Content-Type', 'Authorization'])
     
     logger.info(f"✅ CORS enabled for: {Config.FRONTEND_URL}")
@@ -62,6 +62,9 @@ def create_app():
     from app.api.github import github_bp
     from app.api.slack import slack_bp
     from app.api.teams import teams_bp
+    from app.api.followup import followup_bp
+    from app.api.gemini_test import gemini_test_bp
+    from app.api.jira import jira_bp
     
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(project_bp, url_prefix='/api')
@@ -69,8 +72,22 @@ def create_app():
     app.register_blueprint(github_bp, url_prefix='/github')
     app.register_blueprint(slack_bp, url_prefix='/slack')
     app.register_blueprint(teams_bp)
+    app.register_blueprint(followup_bp, url_prefix='/api/followup')
+    app.register_blueprint(gemini_test_bp, url_prefix='/api')
+    app.register_blueprint(jira_bp, url_prefix='/api/jira')
     
     logger.info("✅ API routes registered")
+    
+    # Simple request logging
+    @app.before_request
+    def log_request_info():
+        from flask import request
+        logger.info(f"{request.method} {request.path}")
+    
+    @app.after_request
+    def log_response_info(response):
+        logger.info(f"Response: {response.status_code}")
+        return response
     
     # Health check endpoint
     @app.route('/health')

@@ -9,11 +9,10 @@ from app import create_app
 app = create_app()
 
 if __name__ == "__main__":
-    # Run with HTTP for development (no SSL certificate errors)
-    # For production, use a proper WSGI server like Gunicorn with HTTPS
+
     app.run(
         host="0.0.0.0",
         port=5000,
-        debug=True
-        # SSL removed for easier development - no certificate errors
+        debug=True,
+        ssl_context='adhoc'
     )

@@ -27,6 +27,10 @@ export default function TestPage() {
   const [channelSummary, setChannelSummary] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+  const [followupActive, setFollowupActive] = useState(false);
+  const [followupLoading, setFollowupLoading] = useState(false);
+  const [showFollowupModal, setShowFollowupModal] = useState(false);
+  const [followupChannel, setFollowupChannel] = useState('');
   
   const messagesEndRef = useRef(null);
   const router = useRouter();
@@ -53,7 +57,7 @@ export default function TestPage() {
     const token = localStorage.getItem('token');
     if (token) {
       try {
-        const res = await fetch(`http://localhost:5000/slack/api/list_conversations`, {
+        const res = await fetch(`https://localhost:5000/slack/api/list_conversations`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -73,7 +77,54 @@ export default function TestPage() {
   useEffect(() => {
     // Fetch Slack channels on mount
     fetchChannels();
+    // Check follow-up status on mount
+    checkFollowupStatus();
   }, []);
+
+  const checkFollowupStatus = async () => {
+    try {
+      const res = await fetch('https://localhost:5000/api/followup/status');
+      const data = await res.json();
+      setFollowupActive(data.active);
+    } catch (err) {
+      console.error('Error checking follow-up status:', err);
+    }
+  };
+
+  const toggleFollowup = async (channelId = null) => {
+    setFollowupLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('https://localhost:5000/api/followup/toggle', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ channel_id: channelId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFollowupActive(data.active);
+        setShowFollowupModal(false);
+        alert(data.message);
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (err) {
+      console.error('Error toggling follow-up:', err);
+      alert('Error toggling follow-up');
+    }
+    setFollowupLoading(false);
+  };
+
+  const handleFollowupClick = () => {
+    if (followupActive) {
+      toggleFollowup(); // Stop without channel
+    } else {
+      setShowFollowupModal(true); // Show channel selection
+    }
+  };
 
   useEffect(() => {
     if (sessionId) {
@@ -84,7 +135,7 @@ export default function TestPage() {
   const fetchConversationHistory = async () => {
     if (!sessionId) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/conversation_history/${sessionId}`);
+      const res = await fetch(`https://localhost:5000/api/conversation_history/${sessionId}`);
       const data = await res.json();
       setConversationHistory(data.conversations || []);
     } catch (err) {
@@ -100,7 +151,7 @@ export default function TestPage() {
     }
     
     try {
-      const response = await fetch('http://localhost:5000/auth/me', {
+      const response = await fetch('https://localhost:5000/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -128,7 +179,7 @@ export default function TestPage() {
   const checkGithubConnection = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('http://localhost:5000/github/api/check_connection', {
+      const response = await fetch('https://localhost:5000/github/api/check_connection', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -147,7 +198,7 @@ export default function TestPage() {
     if (!token) return;
     
     try {
-      const response = await fetch('http://localhost:5000/api/projects', {
+      const response = await fetch('https://localhost:5000/api/projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -164,7 +215,7 @@ export default function TestPage() {
   const fetchRepos = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('http://localhost:5000/github/api/repos', {
+      const response = await fetch('https://localhost:5000/github/api/repos', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -183,7 +234,7 @@ export default function TestPage() {
     if (!token) return;
     
     try {
-      const response = await fetch('http://localhost:5000/api/projects', {
+      const response = await fetch('https://localhost:5000/api/projects', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -219,7 +270,7 @@ export default function TestPage() {
     
     try {
       const projectId = selectedProject._id || selectedProject.id;
-      const response = await fetch(`http://localhost:5000/api/projects/${projectId}`, {
+      const response = await fetch(`https://localhost:5000/api/projects/${projectId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -254,7 +305,7 @@ export default function TestPage() {
       alert("Please login first");
       return;
     }
-    window.location.href = `http://localhost:5000/github/install?token=${token}`;
+    window.location.href = `https://localhost:5000/github/install?token=${token}`;
   };
 
   const sendMessage = async () => {
@@ -281,7 +332,7 @@ export default function TestPage() {
       const projectId = selectedProject._id || selectedProject.id;
       
       try {
-        await fetch(`http://localhost:5000/api/projects/${projectId}/messages`, {
+        await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -301,7 +352,7 @@ export default function TestPage() {
     try {
       const [owner, repoName] = selectedProject.repo?.full_name?.split('/') || [];
 
-      const res = await fetch("http://localhost:5000/api/analyze", {
+      const res = await fetch("https://localhost:5000/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -330,7 +381,7 @@ export default function TestPage() {
 
       if (data.status === "clear" || data.status === "needs_context") {
         const token = localStorage.getItem('token');
-        const planRes = await fetch("http://localhost:5000/api/generate_plan", {
+        const planRes = await fetch("https://localhost:5000/api/generate_plan", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
@@ -365,7 +416,7 @@ export default function TestPage() {
         const projectId = selectedProject._id || selectedProject.id;
         
         try {
-          await fetch(`http://localhost:5000/api/projects/${projectId}/messages`, {
+          await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -440,7 +491,7 @@ export default function TestPage() {
       console.log("📡 Sending to /api/generate_plan:", requestBody);
 
       const token = localStorage.getItem('token');
-      const planRes = await fetch("http://localhost:5000/api/generate_plan", {
+      const planRes = await fetch("https://localhost:5000/api/generate_plan", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -472,7 +523,7 @@ export default function TestPage() {
           const projectId = selectedProject._id || selectedProject.id;
           
           try {
-            await fetch(`http://localhost:5000/api/projects/${projectId}/messages`, {
+            await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -508,7 +559,7 @@ export default function TestPage() {
     setLoadingSummary(true);
 
     try {
-      const historyRes = await fetch(`http://localhost:5000/slack/api/channel_history?channel=${channelId}&limit=50`, {
+      const historyRes = await fetch(`https://localhost:5000/slack/api/channel_history?channel=${channelId}&limit=50`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -530,7 +581,7 @@ export default function TestPage() {
         return;
       }
 
-      const summaryRes = await fetch(`http://localhost:5000/slack/api/summarize_channel`, {
+      const summaryRes = await fetch(`https://localhost:5000/slack/api/summarize_channel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -571,7 +622,7 @@ export default function TestPage() {
     try {
       const summaryMessage = `🚀 *New Task Breakdown*\n\n*Original Prompt:* ${originalPrompt}\n\n*Main Goal:* ${plan.goal}\n*Total Subtasks:* ${plan.subtasks.length}\n\n---\n`;
       
-      await fetch("http://localhost:5000/slack/api/send_message", {
+      await fetch("https://localhost:5000/slack/api/send_message", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -587,7 +638,7 @@ export default function TestPage() {
         const subtask = plan.subtasks[i];
         const message = `📝 *Task ${i + 1}/${plan.subtasks.length}: ${subtask.title}*\n\n*Description:* ${subtask.description}\n*Assigned to:* ${subtask.assigned_to}\n*Deadline:* ${subtask.deadline}\n*Expected Output:* ${subtask.output}\n*Clarity Score:* ${subtask.clarity_score}%`;
         
-        await fetch("http://localhost:5000/slack/api/send_message", {
+        await fetch("https://localhost:5000/slack/api/send_message", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
@@ -635,7 +686,7 @@ export default function TestPage() {
     
     try {
       const projectId = project._id || project.id;
-      const response = await fetch(`http://localhost:5000/api/projects/${projectId}/messages`, {
+      const response = await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -734,6 +785,22 @@ export default function TestPage() {
                 <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5"/>
               </svg>
               <span>Slack Monitor</span>
+            </button>
+
+            <button
+              onClick={handleFollowupClick}
+              disabled={followupLoading}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors ${
+                followupActive 
+                  ? 'bg-green-600 text-white hover:bg-green-700' 
+                  : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
+              } ${followupLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 2v6l4 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
+              </svg>
+              <span>{followupLoading ? 'Loading...' : followupActive ? 'Stop Follow-up' : 'Start Follow-up'}</span>
             </button>
 
             {!githubConnected && (
@@ -1047,6 +1114,48 @@ export default function TestPage() {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Follow-up Channel Selection Modal */}
+      {showFollowupModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#111111] border border-[#1a1a1a] rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-xl font-semibold mb-4">Select Slack Channel</h3>
+            <p className="text-sm text-gray-400 mb-4">
+              Choose a channel to send follow-up messages every 10 seconds
+            </p>
+            <select
+              value={followupChannel}
+              onChange={(e) => setFollowupChannel(e.target.value)}
+              className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-4 py-3 mb-4 focus:outline-none focus:border-[#2a2a2a]"
+            >
+              <option value="">-- Select Channel --</option>
+              {channels.map((ch) => (
+                <option key={ch.id} value={ch.id}>
+                  {ch.is_channel ? '#' : ''}{ch.name || 'DM'}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <button
+                onClick={() => toggleFollowup(followupChannel)}
+                disabled={!followupChannel}
+                className="flex-1 bg-white text-black px-4 py-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 font-medium transition-colors"
+              >
+                Start Follow-up
+              </button>
+              <button
+                onClick={() => {
+                  setShowFollowupModal(false);
+                  setFollowupChannel('');
+                }}
+                className="flex-1 bg-[#1a1a1a] px-4 py-2 rounded-lg hover:bg-[#222222] transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

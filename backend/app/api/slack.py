@@ -370,7 +370,7 @@ def summarize_channel():
 
 @slack_bp.route("/api/send_message", methods=["POST"])
 def send_message():
-    """Send a message to Slack"""
+    """Send a message to Slack with optional user mentions"""
     auth_header = request.headers.get('Authorization')
     if not auth_header:
         return jsonify({"error": "No authorization provided"}), 401
@@ -379,6 +379,7 @@ def send_message():
     channel = body.get("channel")
     text = body.get("text")
     mention_user_id = body.get("mention_user_id")
+    assigned_to = body.get("assigned_to")  # Team member name
     
     logger.info("=== SEND MESSAGE REQUEST ===")
     logger.info(f"Channel: {channel}")
@@ -399,6 +400,54 @@ def send_message():
         
         slack_token = token_info.get("bot_token") or token_info.get("access_token")
         
+        # Auto-match team member with Slack user if assigned_to is provided
+        if assigned_to and not mention_user_id:
+            try:
+                users_url = "https://slack.com/api/users.list"
+                headers_list = {"Authorization": f"Bearer {slack_token}"}
+                users_response = requests.get(users_url, headers=headers_list, timeout=10)
+                users_data = users_response.json()
+                
+                if users_data.get("ok"):
+                    slack_users = users_data.get("members", [])
+                    assigned_lower = assigned_to.lower().strip()
+                    
+                    # Try exact match first
+                    for slack_user in slack_users:
+                        if slack_user.get("is_bot") or slack_user.get("deleted"):
+                            continue
+                        
+                        real_name = slack_user.get("real_name", "").lower().strip()
+                        display_name = slack_user.get("profile", {}).get("display_name", "").lower().strip()
+                        username = slack_user.get("name", "").lower().strip()
+                        
+                        # Exact match
+                        if assigned_lower == real_name or assigned_lower == display_name or assigned_lower == username:
+                            mention_user_id = slack_user["id"]
+                            logger.info(f"✅ Exact match: '{assigned_to}' → Slack user {slack_user.get('real_name')} (ID: {mention_user_id})")
+                            break
+                    
+                    # If no exact match, try partial match
+                    if not mention_user_id:
+                        for slack_user in slack_users:
+                            if slack_user.get("is_bot") or slack_user.get("deleted"):
+                                continue
+                            
+                            real_name = slack_user.get("real_name", "").lower().strip()
+                            display_name = slack_user.get("profile", {}).get("display_name", "").lower().strip()
+                            
+                            # Partial match (name contains or is contained)
+                            if (assigned_lower in real_name or real_name in assigned_lower or 
+                                assigned_lower in display_name or display_name in assigned_lower):
+                                mention_user_id = slack_user["id"]
+                                logger.info(f"✅ Partial match: '{assigned_to}' → Slack user {slack_user.get('real_name')} (ID: {mention_user_id})")
+                                break
+                    
+                    if not mention_user_id:
+                        logger.warning(f"⚠️ No Slack user found matching '{assigned_to}'")
+            except Exception as e:
+                logger.warning(f"⚠️ Could not auto-match team member: {str(e)}")
+        
         # Join channel first
         try:
             join_url = "https://slack.com/api/conversations.join"
@@ -408,14 +457,26 @@ def send_message():
         except Exception as e:
             logger.warning(f"⚠️ Could not join channel: {str(e)}")
         
-        # Send message
-        final_text = text
+        # Format message with proper user mention or fallback to name
         if mention_user_id:
+            # User found - tag them in Slack
             final_text = f"<@{mention_user_id}> {text}"
+            logger.info(f"📢 Tagging user {mention_user_id} in message")
+        elif assigned_to:
+            # User not found - just show the name
+            final_text = f"👤 {assigned_to}\n{text}"
+            logger.info(f"ℹ️ User '{assigned_to}' not found in Slack, showing name only")
+        else:
+            final_text = text
         
         url = "https://slack.com/api/chat.postMessage"
         headers = {"Authorization": f"Bearer {slack_token}", "Content-Type": "application/json"}
-        payload = {"channel": channel, "text": final_text}
+        payload = {
+            "channel": channel, 
+            "text": final_text,
+            "link_names": True,
+            "parse": "full"
+        }
         
         response = requests.post(url, headers=headers, json=payload)
         data = response.json()
@@ -1619,6 +1680,204 @@ _Generated by Feeta AI based on your project repositories and tasks_"""
             pass
         return False
 
+
+@slack_bp.route("/api/list-users", methods=["GET"])
+def list_users():
+    """List all Slack users in workspace"""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        logger.error("No authorization header")
+        return jsonify({"error": "No authorization provided"}), 401
+    
+    try:
+        token = auth_header.replace('Bearer ', '')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload['user_id']
+        logger.info(f"Fetching Slack users for user_id: {user_id}")
+        
+        token_info = get_token_for_user(user_id)
+        if not token_info:
+            logger.error(f"No Slack token found for user: {user_id}")
+            return jsonify({"error": "Slack not connected. Please connect Slack first."}), 400
+        
+        slack_token = token_info.get("bot_token") or token_info.get("access_token")
+        
+        users_url = "https://slack.com/api/users.list"
+        headers = {"Authorization": f"Bearer {slack_token}"}
+        response = requests.get(users_url, headers=headers, timeout=10)
+        data = response.json()
+        
+        if not data.get("ok"):
+            return jsonify({"error": data.get("error", "Failed to fetch users")}), 500
+        
+        members = data.get("members", [])
+        users = [{
+            "id": m["id"],
+            "name": m.get("name"),
+            "real_name": m.get("real_name"),
+            "profile": {
+                "email": m.get("profile", {}).get("email"),
+                "image_48": m.get("profile", {}).get("image_48")
+            }
+        } for m in members if not m.get("is_bot") and not m.get("deleted")]
+        
+        return jsonify({"users": users})
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+    except Exception as e:
+        logger.error(f"Error listing users: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@slack_bp.route("/api/match-team-members", methods=["POST"])
+def match_team_members():
+    """Match team member names with Slack users and return Slack IDs"""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"error": "No authorization provided"}), 401
+    
+    try:
+        token = auth_header.replace('Bearer ', '')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload['user_id']
+        
+        body = request.get_json()
+        team_members = body.get('team_members', [])
+        
+        if not team_members:
+            return jsonify({"matches": []})
+        
+        token_info = get_token_for_user(user_id)
+        if not token_info:
+            return jsonify({"error": "Slack not connected"}), 400
+        
+        slack_token = token_info.get("bot_token") or token_info.get("access_token")
+        
+        # Get all Slack users
+        users_url = "https://slack.com/api/users.list"
+        headers = {"Authorization": f"Bearer {slack_token}"}
+        response = requests.get(users_url, headers=headers, timeout=10)
+        data = response.json()
+        
+        if not data.get("ok"):
+            return jsonify({"error": "Failed to fetch Slack users"}), 500
+        
+        slack_users = data.get("members", [])
+        matches = []
+        
+        # Match each team member with Slack users
+        for member_name in team_members:
+            matched = None
+            member_lower = member_name.lower()
+            
+            for slack_user in slack_users:
+                if slack_user.get("is_bot") or slack_user.get("deleted"):
+                    continue
+                
+                real_name = slack_user.get("real_name", "").lower()
+                display_name = slack_user.get("profile", {}).get("display_name", "").lower()
+                
+                if member_lower in real_name or real_name in member_lower or member_lower in display_name:
+                    matched = {
+                        "team_member_name": member_name,
+                        "slack_user_id": slack_user["id"],
+                        "slack_user_name": slack_user.get("real_name"),
+                        "slack_username": slack_user.get("name")
+                    }
+                    break
+            
+            if matched:
+                matches.append(matched)
+            else:
+                matches.append({
+                    "team_member_name": member_name,
+                    "slack_user_id": None,
+                    "slack_user_name": None,
+                    "slack_username": None
+                })
+        
+        return jsonify({"matches": matches})
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+    except Exception as e:
+        logger.error(f"Error matching team members: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@slack_bp.route("/api/check-user-status", methods=["POST"])
+def check_user_status():
+    """Check if a team member is available on Slack by matching their name"""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"error": "No authorization provided"}), 401
+    
+    try:
+        token = auth_header.replace('Bearer ', '')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload['user_id']
+        
+        body = request.get_json()
+        member_name = body.get('member_name')
+        
+        if not member_name:
+            return jsonify({"error": "member_name is required"}), 400
+        
+        token_info = get_token_for_user(user_id)
+        if not token_info:
+            return jsonify({"available": False, "reason": "Slack not connected"})
+        
+        slack_token = token_info.get("bot_token") or token_info.get("access_token")
+        
+        # Get all users in workspace
+        users_url = "https://slack.com/api/users.list"
+        headers = {"Authorization": f"Bearer {slack_token}"}
+        response = requests.get(users_url, headers=headers, timeout=10)
+        data = response.json()
+        
+        if not data.get("ok"):
+            return jsonify({"available": False, "reason": "Failed to fetch Slack users"})
+        
+        # Find user by name match
+        members = data.get("members", [])
+        matched_user = None
+        
+        for member in members:
+            real_name = member.get("real_name", "").lower()
+            display_name = member.get("profile", {}).get("display_name", "").lower()
+            
+            if member_name.lower() in real_name or member_name.lower() in display_name:
+                matched_user = member
+                break
+        
+        if not matched_user:
+            return jsonify({"available": False, "reason": "User not found in Slack"})
+        
+        # Check user presence
+        presence_url = "https://slack.com/api/users.getPresence"
+        presence_params = {"user": matched_user["id"]}
+        presence_response = requests.get(presence_url, headers=headers, params=presence_params, timeout=5)
+        presence_data = presence_response.json()
+        
+        is_active = presence_data.get("presence") == "active" if presence_data.get("ok") else False
+        
+        return jsonify({
+            "available": is_active,
+            "slack_user_id": matched_user["id"],
+            "slack_user_name": matched_user.get("real_name"),
+            "status": presence_data.get("presence", "unknown")
+        })
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+    except Exception as e:
+        logger.error(f"Error checking user status: {str(e)}")
+        return jsonify({"available": False, "reason": str(e)})
 
 @slack_bp.route("/api/test-slack-message", methods=["POST"])
 def test_slack_message():

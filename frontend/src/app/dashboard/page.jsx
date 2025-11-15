@@ -7,6 +7,48 @@ import Image from 'next/image';
 export default function Dashboard() {
   const router = useRouter();
   const [userName, setUserName] = useState('User');
+  const [followupActive, setFollowupActive] = useState(false);
+  const [selectedChannel, setSelectedChannel] = useState('');
+  const [channels, setChannels] = useState([]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetch('https://localhost:5000/slack/api/list_conversations', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.channels) {
+          setChannels(data.channels);
+          if (data.channels.length > 0) setSelectedChannel(data.channels[0].id);
+        }
+      })
+      .catch(err => console.error('Error loading channels:', err));
+    }
+  }, []);
+
+  const toggleFollowup = async () => {
+    const token = localStorage.getItem('token');
+    if (!token || !selectedChannel) return;
+
+    try {
+      const response = await fetch('https://localhost:5000/api/followup/toggle', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ channel_id: selectedChannel })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setFollowupActive(data.active);
+      }
+    } catch (error) {
+      console.error('Error toggling followup:', error);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -62,10 +104,29 @@ export default function Dashboard() {
               <span className="font-semibold text-gray-900">AI Assistant</span>
             </div>
             <p className="text-sm text-gray-600 mb-3">Get instant insights and automate your workflow</p>
-            <button onClick={() => router.push('/slack-success')} className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-2">
+            <button onClick={() => router.push('/slack-success')} className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-2 mb-2">
               <Image src="/images/F.png" alt="Feeta Logo" width={16} height={16} className="rounded-sm" />
               Ask Feeta AI
             </button>
+            {channels.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-blue-200">
+                <select 
+                  value={selectedChannel} 
+                  onChange={(e) => setSelectedChannel(e.target.value)}
+                  className="w-full mb-2 px-2 py-1 text-sm border rounded"
+                >
+                  {channels.map(ch => (
+                    <option key={ch.id} value={ch.id}>{ch.name}</option>
+                  ))}
+                </select>
+                <button 
+                  onClick={toggleFollowup}
+                  className={`w-full py-2 rounded-lg text-sm font-medium ${followupActive ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
+                >
+                  {followupActive ? '🔴 Stop Follow-up' : '🟢 Start Follow-up'}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="text-sm">
@@ -81,6 +142,27 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
+        {/* Top Header */}
+        <header className="bg-white border-b border-gray-100 px-8 py-4 sticky top-0 z-10">
+          <div className="flex items-center justify-end gap-4">
+            <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold cursor-pointer">
+              {userName.charAt(0)}
+            </div>
+            <button 
+              onClick={() => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                router.push('/login');
+              }}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-red-600 hover:text-red-700"
+              title="Logout"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          </div>
+        </header>
         <div className="p-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Good morning, {userName}! 👋</h1>
           <p className="text-gray-600 mb-8">Here's what's happening with your projects today</p>

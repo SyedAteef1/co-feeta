@@ -603,8 +603,25 @@ def match_task_to_members(task, team_members):
 @project_bp.route("/projects/<project_id>/tasks/pending-approval", methods=["GET", "OPTIONS"])
 def get_pending_approval_tasks(project_id):
     """Get all tasks pending approval for a project with suggested team members"""
+    logger.info(f"🎯 ROUTE HIT: get_pending_approval_tasks called with project_id={project_id}")
+    
     if request.method == "OPTIONS":
         return jsonify({"ok": True}), 200
+    
+    try:
+        logger.info(f"📥 Received GET request for project_id: {project_id}")
+        
+        # Validate project_id format
+        if not project_id:
+            logger.error("❌ Empty project_id")
+            return jsonify({"error": "Project ID is required"}), 400
+        
+        if not ObjectId.is_valid(project_id):
+            logger.error(f"❌ Invalid ObjectId format: {project_id}")
+            return jsonify({"error": "Invalid project ID format"}), 400
+    except Exception as validation_error:
+        logger.error(f"❌ Validation error: {validation_error}")
+        return jsonify({"error": str(validation_error)}), 400
     
     auth_header = request.headers.get('Authorization')
     if not auth_header:
@@ -622,6 +639,17 @@ def get_pending_approval_tasks(project_id):
         user_id = payload['user_id']
         
         logger.info(f"📋 Fetching pending approval tasks for project {project_id}, user {user_id}")
+        
+        # Verify project belongs to user
+        from app.database.mongodb import projects_collection
+        project = projects_collection.find_one({"_id": ObjectId(project_id)})
+        if not project:
+            logger.error(f"❌ Project {project_id} not found")
+            return jsonify({"error": "Project not found"}), 404
+        
+        if project.get('user_id') != user_id:
+            logger.error(f"❌ Project {project_id} does not belong to user {user_id}")
+            return jsonify({"error": "Unauthorized access to project"}), 403
         
         # Get tasks
         try:
@@ -708,6 +736,8 @@ def approve_and_send_tasks(project_id):
             return jsonify({"error": "task_ids required"}), 400
         
         logger.info(f"✅ Approving {len(task_ids)} tasks for project {project_id}")
+        logger.info(f"📢 Target Slack channel: {channel_id}")
+        logger.info(f"👥 Task assignments: {task_assignments}")
         
         # Get all tasks for the project
         all_tasks = get_project_tasks(project_id)
@@ -800,74 +830,144 @@ def approve_and_send_tasks(project_id):
             timeline = task.get('timeline', '')
             estimated_hours = task.get('estimated_hours', 'Not specified')
             
-            # Find Slack user ID for tagging
+            # Find Slack user ID for tagging by matching name
             slack_user_id = None
-            if assigned_member_email:
-                slack_user_id = find_slack_user_by_email(assigned_member_email)
+            if assigned_member_name and assigned_member_name != 'Unassigned':
+                try:
+                    users_url = "https://slack.com/api/users.list"
+                    headers_list = {"Authorization": f"Bearer {slack_token}"}
+                    users_response = requests.get(users_url, headers=headers_list, timeout=10)
+                    users_data = users_response.json()
+                    
+                    if users_data.get('ok'):
+                        slack_users = users_data.get('members', [])
+                        assigned_lower = assigned_member_name.lower().strip()
+                        
+                        # Try exact match first
+                        for slack_user in slack_users:
+                            if slack_user.get('is_bot') or slack_user.get('deleted'):
+                                continue
+                            
+                            real_name = slack_user.get('real_name', '').lower().strip()
+                            display_name = slack_user.get('profile', {}).get('display_name', '').lower().strip()
+                            
+                            # Exact match
+                            if assigned_lower == real_name or assigned_lower == display_name:
+                                slack_user_id = slack_user['id']
+                                logger.info(f"✅ Exact match: '{assigned_member_name}' = Slack user '{slack_user.get('real_name')}' (ID: {slack_user_id})")
+                                break
+                        
+                        # If no exact match, try partial match
+                        if not slack_user_id:
+                            for slack_user in slack_users:
+                                if slack_user.get('is_bot') or slack_user.get('deleted'):
+                                    continue
+                                
+                                real_name = slack_user.get('real_name', '').lower().strip()
+                                display_name = slack_user.get('profile', {}).get('display_name', '').lower().strip()
+                                
+                                # Partial match (name contains or is contained)
+                                if (assigned_lower in real_name or real_name in assigned_lower or 
+                                    assigned_lower in display_name or display_name in assigned_lower):
+                                    slack_user_id = slack_user['id']
+                                    logger.info(f"✅ Partial match: '{assigned_member_name}' ~ Slack user '{slack_user.get('real_name')}' (ID: {slack_user_id})")
+                                    break
+                        
+                        if not slack_user_id:
+                            logger.warning(f"⚠️ No Slack user found matching '{assigned_member_name}'")
+                    else:
+                        logger.error(f"❌ Slack users.list API failed: {users_data.get('error')}")
+                except Exception as e:
+                    logger.error(f"❌ Error finding Slack user: {str(e)}")
             
-            # Build message with mention
-            mention = f"<@{slack_user_id}>" if slack_user_id else assigned_member_name
-            if slack_user_id:
-                message = f"""📋 *New Task: {task_title}*
+            # Build messages for DM and channel
+            dm_message = f"""👋 Hi! You've been assigned a new task:
+
+📋 *{task_title}*
 
 {task_description}
 
-👤 *Assigned to:* {mention}
 ⏰ *Deadline:* {deadline}
 ⏱️ *Estimated Time:* {estimated_hours} {f"({timeline})" if timeline else ""}
 
-Please confirm receipt and provide updates as you progress."""
-            else:
-                message = f"""📋 *New Task: {task_title}*
+Please confirm receipt and provide updates as you progress. Good luck! 🚀"""
+            
+            if slack_user_id:
+                channel_message = f"""<@{slack_user_id}> has been assigned:
 
+📋 *{task_title}*
+{task_description}
+
+⏰ *Deadline:* {deadline}
+⏱️ *Estimated Time:* {estimated_hours} {f"({timeline})" if timeline else ""}"""
+                logger.info(f"📨 Will DM and tag <@{slack_user_id}> for {assigned_member_name}")
+            else:
+                channel_message = f"""📋 *New Task Assigned*
+
+*Task:* {task_title}
 {task_description}
 
 👤 *Assigned to:* {assigned_member_name}
 ⏰ *Deadline:* {deadline}
-⏱️ *Estimated Time:* {estimated_hours} {f"({timeline})" if timeline else ""}
-
-Please confirm receipt and provide updates as you progress."""
+⏱️ *Estimated Time:* {estimated_hours} {f"({timeline})" if timeline else ""}"""
+                logger.warning(f"⚠️ No Slack user found for '{assigned_member_name}' - showing name only")
             
-            # Send to Slack
-            url = "https://slack.com/api/chat.postMessage"
             headers = {
                 "Authorization": f"Bearer {slack_token}",
                 "Content-Type": "application/json"
             }
-            payload = {
-                "channel": channel_id,
-                "text": message,
-                "parse": "full"
-            }
             
+            # Join channel first
             try:
-                # Join channel first (required for bot to post)
                 join_url = "https://slack.com/api/conversations.join"
                 join_response = requests.post(join_url, headers=headers, json={"channel": channel_id}, timeout=5)
                 if not join_response.json().get('ok'):
-                    logger.warning(f"⚠️ Could not join channel {channel_id}, but continuing...")
+                    logger.warning(f"⚠️ Could not join channel {channel_id}")
             except Exception as join_error:
                 logger.warning(f"⚠️ Error joining channel: {join_error}")
-                # Continue anyway - might already be in channel
             
             try:
-                response = requests.post(url, headers=headers, json=payload, timeout=10)
+                # 1. Send DM to assigned person if we found them
+                if slack_user_id:
+                    try:
+                        # Open DM channel
+                        im_url = "https://slack.com/api/conversations.open"
+                        im_response = requests.post(im_url, headers=headers, json={"users": slack_user_id}, timeout=5)
+                        im_data = im_response.json()
+                        
+                        if im_data.get("ok"):
+                            dm_channel_id = im_data.get("channel", {}).get("id")
+                            if dm_channel_id:
+                                # Send DM
+                                dm_url = "https://slack.com/api/chat.postMessage"
+                                dm_payload = {"channel": dm_channel_id, "text": dm_message, "mrkdwn": True}
+                                dm_result = requests.post(dm_url, headers=headers, json=dm_payload, timeout=10)
+                                if dm_result.json().get("ok"):
+                                    logger.info(f"✅ DM sent to {assigned_member_name}")
+                                else:
+                                    logger.warning(f"⚠️ Failed to send DM: {dm_result.json().get('error')}")
+                    except Exception as dm_error:
+                        logger.warning(f"⚠️ Error sending DM: {dm_error}")
+                
+                # 2. Send message to channel for team visibility
+                logger.info(f"📤 Sending task to channel: {channel_id}")
+                channel_url = "https://slack.com/api/chat.postMessage"
+                channel_payload = {"channel": channel_id, "text": channel_message, "mrkdwn": True}
+                
+                response = requests.post(channel_url, headers=headers, json=channel_payload, timeout=10)
                 slack_response = response.json()
                 
                 if slack_response.get("ok"):
                     approved_count += 1
-                    # Update task status to sent
                     update_task(task_id, {"status": "sent_to_slack"})
-                    logger.info(f"✅ Task {task_id} approved and sent to Slack")
+                    logger.info(f"✅ Task {task_id} sent to channel! TS: {slack_response.get('ts')}")
                 else:
                     error_msg = slack_response.get('error', 'Unknown error')
-                    logger.error(f"❌ Failed to send task {task_id} to Slack: {error_msg}")
-                    # Still mark as approved even if Slack send failed
+                    logger.error(f"❌ Failed to send to channel: {error_msg}")
                     approved_count += 1
                     update_task(task_id, {"status": "approved"})
             except Exception as send_error:
                 logger.error(f"❌ Error sending to Slack: {send_error}")
-                # Still mark as approved
                 approved_count += 1
                 update_task(task_id, {"status": "approved"})
         

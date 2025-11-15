@@ -25,13 +25,13 @@ export const Integrations = () => {
   const handleConnect = () => {
     localStorage.removeItem('slack_user_id');
     localStorage.removeItem('slack_team_id');
-    window.location.href = "http://localhost:5000/slack/install";
+    window.location.href = "https://localhost:5000/slack/install";
   };
 
   const fetchChannels = async (user_id) => {
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/list_conversations?user_id=${user_id}`);
+      const response = await fetch(`https://localhost:5000/api/list_conversations?user_id=${user_id}`);
       const data = await response.json();
       if (data && data.channels) {
         setChannels(data.channels);
@@ -44,7 +44,7 @@ export const Integrations = () => {
 
   const fetchAccountDetails = async (user_id) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/user_info?user_id=${user_id}`);
+      const response = await fetch(`https://localhost:5000/api/user_info?user_id=${user_id}`);
       const data = await response.json();
       setAccountDetails(data);
       console.log('Account Details:', data);

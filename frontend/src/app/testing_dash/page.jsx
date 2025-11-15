@@ -200,7 +200,7 @@ export default function TestingDash() {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/auth/me', {
+      const response = await fetch('https://localhost:5000/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -227,7 +227,7 @@ export default function TestingDash() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/projects', {
+      const response = await fetch('https://localhost:5000/api/projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -393,6 +393,20 @@ export default function TestingDash() {
               <div className="w-10 h-10 bg-gradient-to-br from-[#4C3BCF] to-purple-600 rounded-full flex items-center justify-center text-white font-bold cursor-pointer">
                 {user?.email ? user.email.substring(0, 2).toUpperCase() : 'S'}
               </div>
+
+              <button 
+                onClick={() => {
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('user');
+                  router.push('/login');
+                }}
+                className="p-2 hover:bg-[#1C1C1C] rounded-lg transition-colors text-red-400 hover:text-red-300"
+                title="Logout"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
             </div>
           </div>
         </header>

@@ -117,7 +117,7 @@ function TasksPage({ user }) {
     if (!token) return;
 
     try {
-      const response = await fetch('http://localhost:5000/api/projects', {
+      const response = await fetch('https://localhost:5000/api/projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -144,9 +144,9 @@ function TasksPage({ user }) {
     setIsLoading(true);
     
     try {
-      console.log('📡 Fetching tasks from API: http://localhost:5000/api/tasks');
+      console.log('📡 Fetching tasks from API: https://localhost:5000/api/tasks');
       
-      const response = await fetch('http://localhost:5000/api/tasks', {
+      const response = await fetch('https://localhost:5000/api/tasks', {
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -626,7 +626,7 @@ function TeamsPage({ user }) {
     if (!token) return;
 
     try {
-      const response = await fetch('http://localhost:5000/api/teams/members', {
+      const response = await fetch('https://localhost:5000/api/teams/members', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -655,7 +655,7 @@ function TeamsPage({ user }) {
       const formData = new FormData();
       formData.append('resume', file);
 
-      const response = await fetch('http://localhost:5000/api/teams/analyze_resume', {
+      const response = await fetch('https://localhost:5000/api/teams/analyze_resume', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -692,7 +692,7 @@ function TeamsPage({ user }) {
       formData.append('email', email);
       formData.append('selected_roles', JSON.stringify(selectedRoles));
 
-      const response = await fetch('http://localhost:5000/api/teams/members', {
+      const response = await fetch('https://localhost:5000/api/teams/members', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -723,7 +723,7 @@ function TeamsPage({ user }) {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/teams/members/${memberId}`, {
+      const response = await fetch(`https://localhost:5000/api/teams/members/${memberId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -1021,6 +1021,11 @@ export default function DemoDash() {
   const [user, setUser] = useState(null);
   const [githubConnected, setGithubConnected] = useState(false);
   const [slackConnected, setSlackConnected] = useState(false);
+  const [jiraConnected, setJiraConnected] = useState(false);
+  const [showJiraModal, setShowJiraModal] = useState(false);
+  const [showJiraTaskModal, setShowJiraTaskModal] = useState(false);
+  const [selectedTaskForJira, setSelectedTaskForJira] = useState(null);
+  const [jiraProjects, setJiraProjects] = useState([]);
   const [repos, setRepos] = useState([]);
   const [showRepoModal, setShowRepoModal] = useState(false);
   const [selectedRepos, setSelectedRepos] = useState([]);
@@ -1124,7 +1129,7 @@ export default function DemoDash() {
       }
 
       // Load projects
-      const projectsRes = await fetch('http://localhost:5000/api/projects', {
+      const projectsRes = await fetch('https://localhost:5000/api/projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (projectsRes.ok) {
@@ -1138,7 +1143,7 @@ export default function DemoDash() {
         for (const project of userProjects.slice(0, 10)) {
           const projectId = project._id || project.id;
           try {
-            const tasksRes = await fetch(`http://localhost:5000/api/projects/${projectId}/tasks`, {
+            const tasksRes = await fetch(`https://localhost:5000/api/projects/${projectId}/tasks`, {
               headers: { 'Authorization': `Bearer ${token}` }
             });
             if (tasksRes.ok) {
@@ -1154,7 +1159,7 @@ export default function DemoDash() {
       }
 
       // Load team members
-      const membersRes = await fetch('http://localhost:5000/api/teams/members', {
+      const membersRes = await fetch('https://localhost:5000/api/teams/members', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (membersRes.ok) {
@@ -1165,7 +1170,7 @@ export default function DemoDash() {
 
       // Load all tasks across all projects to calculate stats
       const allTasks = [];
-      const projectsRes2 = await fetch('http://localhost:5000/api/projects', {
+      const projectsRes2 = await fetch('https://localhost:5000/api/projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (projectsRes2.ok) {
@@ -1175,7 +1180,7 @@ export default function DemoDash() {
         for (const project of userProjects2) {
           const projectId = project._id || project.id;
           try {
-            const tasksRes = await fetch(`http://localhost:5000/api/projects/${projectId}/tasks`, {
+            const tasksRes = await fetch(`https://localhost:5000/api/projects/${projectId}/tasks`, {
               headers: { 'Authorization': `Bearer ${token}` }
             });
             if (tasksRes.ok) {
@@ -1241,7 +1246,7 @@ export default function DemoDash() {
     }
     
     try {
-      const response = await fetch('http://localhost:5000/auth/me', {
+      const response = await fetch('https://localhost:5000/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -1257,6 +1262,7 @@ export default function DemoDash() {
       loadProjects();
       checkGithubConnection();
       checkSlackConnection();
+      checkJiraConnection();
     } catch (error) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -1267,7 +1273,7 @@ export default function DemoDash() {
   const checkGithubConnection = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('http://localhost:5000/github/api/check_connection', {
+      const response = await fetch('https://localhost:5000/github/api/check_connection', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -1284,7 +1290,7 @@ export default function DemoDash() {
   const fetchRepos = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('http://localhost:5000/github/api/repos', {
+      const response = await fetch('https://localhost:5000/github/api/repos', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -1302,13 +1308,13 @@ export default function DemoDash() {
       alert("Please login first");
       return;
     }
-    window.location.href = `http://localhost:5000/github/install?token=${token}`;
+    window.location.href = `https://localhost:5000/github/install?token=${token}`;
   };
 
   const checkSlackConnection = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('http://localhost:5000/slack/api/status', {
+      const response = await fetch('https://localhost:5000/slack/api/status', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -1325,7 +1331,20 @@ export default function DemoDash() {
       alert("Please login first");
       return;
     }
-    window.location.href = `http://localhost:5000/slack/install?token=${token}`;
+    window.location.href = `https://localhost:5000/slack/install?token=${token}`;
+  };
+
+  const checkJiraConnection = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch('https://localhost:5000/api/jira/status', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      setJiraConnected(data.connected);
+    } catch (error) {
+      console.error('Error checking Jira connection:', error);
+    }
   };
 
   const connectReposToProject = async () => {
@@ -1334,7 +1353,7 @@ export default function DemoDash() {
     const token = localStorage.getItem('token');
     try {
       console.log('🔄 Connecting repositories:', selectedRepos);
-      const response = await fetch(`http://localhost:5000/api/projects/${selectedProject._id}`, {
+      const response = await fetch(`https://localhost:5000/api/projects/${selectedProject._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1390,7 +1409,7 @@ export default function DemoDash() {
         if (!token) return;
         
         try {
-          const channelsRes = await fetch('http://localhost:5000/slack/api/list_conversations', {
+          const channelsRes = await fetch('https://localhost:5000/slack/api/list_conversations', {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           
@@ -1437,7 +1456,7 @@ export default function DemoDash() {
 
       try {
         // Get all channels
-        const channelsRes = await fetch('http://localhost:5000/slack/api/list_conversations', {
+        const channelsRes = await fetch('https://localhost:5000/slack/api/list_conversations', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -1462,7 +1481,7 @@ export default function DemoDash() {
 
         for (const channel of channels) {
           try {
-            const response = await fetch(`http://localhost:5000/slack/api/check-channel-mentions`, {
+            const response = await fetch(`https://localhost:5000/slack/api/check-channel-mentions`, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -1594,7 +1613,7 @@ export default function DemoDash() {
       let response;
       if (selectedProject) {
         // Use project-specific endpoint if project is selected
-        response = await fetch(`http://localhost:5000/api/projects/${selectedProject._id || selectedProject.id}/resolve-issue`, {
+        response = await fetch(`https://localhost:5000/api/projects/${selectedProject._id || selectedProject.id}/resolve-issue`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -1607,7 +1626,7 @@ export default function DemoDash() {
         });
       } else {
         // Use general endpoint if no project selected
-        response = await fetch(`http://localhost:5000/slack/api/resolve-issue`, {
+        response = await fetch(`https://localhost:5000/slack/api/resolve-issue`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -1661,7 +1680,7 @@ export default function DemoDash() {
         timestamp: new Date().toLocaleTimeString()
       }]);
 
-      const response = await fetch(`http://localhost:5000/slack/api/check-channel-mentions`, {
+      const response = await fetch(`https://localhost:5000/slack/api/check-channel-mentions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1675,7 +1694,7 @@ export default function DemoDash() {
         // Handle network errors
         let errorMsg = 'Network connection failed';
         if (fetchError.message.includes('Failed to fetch') || fetchError.message.includes('NetworkError')) {
-          errorMsg = 'Cannot connect to backend server. Please ensure:\n1. Backend server is running on http://localhost:5000\n2. No firewall is blocking the connection';
+          errorMsg = 'Cannot connect to backend server. Please ensure:\n1. Backend server is running on https://localhost:5000\n2. No firewall is blocking the connection';
         } else {
           errorMsg = fetchError.message;
         }
@@ -1768,7 +1787,7 @@ export default function DemoDash() {
       console.log(`📋 Loading pending tasks for project: ${projectId}`);
       
       // Fetch pending tasks with suggestions
-      const tasksRes = await fetch(`http://localhost:5000/api/projects/${projectId}/tasks/pending-approval`, {
+      const tasksRes = await fetch(`https://localhost:5000/api/projects/${projectId}/tasks/pending-approval`, {
         method: 'GET',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -1785,7 +1804,7 @@ export default function DemoDash() {
         
         // Fetch Slack channels (optional - don't fail if this fails)
         try {
-          const channelsRes = await fetch('http://localhost:5000/slack/api/list_conversations', {
+          const channelsRes = await fetch('https://localhost:5000/slack/api/list_conversations', {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           
@@ -1847,7 +1866,7 @@ export default function DemoDash() {
     try {
       console.log(`✅ Approving ${taskIds.length} tasks...`);
       
-      const response = await fetch(`http://localhost:5000/api/projects/${selectedProject._id || selectedProject.id}/tasks/approve`, {
+      const response = await fetch(`https://localhost:5000/api/projects/${selectedProject._id || selectedProject.id}/tasks/approve`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1912,7 +1931,7 @@ export default function DemoDash() {
     if (!token) return;
     
     try {
-      const response = await fetch('http://localhost:5000/api/projects', {
+      const response = await fetch('https://localhost:5000/api/projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -1932,7 +1951,7 @@ export default function DemoDash() {
     if (!token) return;
     
     try {
-      const response = await fetch('http://localhost:5000/api/projects', {
+      const response = await fetch('https://localhost:5000/api/projects', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -2019,7 +2038,7 @@ export default function DemoDash() {
     
     try {
       const projectId = project._id || project.id;
-      const response = await fetch(`http://localhost:5000/api/projects/${projectId}/messages`, {
+      const response = await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -2071,7 +2090,7 @@ export default function DemoDash() {
       const projectId = selectedProject._id || selectedProject.id;
       
       try {
-        await fetch(`http://localhost:5000/api/projects/${projectId}/messages`, {
+        await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -2101,7 +2120,7 @@ export default function DemoDash() {
         repositories = [{ owner, repo: repoName, type: 'unknown' }];
       }
       
-      const res = await fetch("http://localhost:5000/api/analyze", {
+      const res = await fetch("https://localhost:5000/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2129,7 +2148,7 @@ export default function DemoDash() {
 
       if (data.status === "clear" || data.status === "needs_context") {
         const token = localStorage.getItem('token');
-        const planRes = await fetch("http://localhost:5000/api/generate_plan", {
+        const planRes = await fetch("https://localhost:5000/api/generate_plan", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
@@ -2151,7 +2170,7 @@ export default function DemoDash() {
           // Save tasks to database
           if (selectedProject && planData.subtasks) {
             try {
-              await fetch(`http://localhost:5000/api/projects/${projectId}/tasks`, {
+              await fetch(`https://localhost:5000/api/projects/${projectId}/tasks`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -2184,7 +2203,7 @@ export default function DemoDash() {
         const projectId = selectedProject._id || selectedProject.id;
         
         try {
-          await fetch(`http://localhost:5000/api/projects/${projectId}/messages`, {
+          await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -2249,7 +2268,7 @@ export default function DemoDash() {
       };
 
       const token = localStorage.getItem('token');
-      const planRes = await fetch("http://localhost:5000/api/generate_plan", {
+      const planRes = await fetch("https://localhost:5000/api/generate_plan", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -2280,7 +2299,7 @@ export default function DemoDash() {
           
           try {
             // Save AI response message
-            await fetch(`http://localhost:5000/api/projects/${projectId}/messages`, {
+            await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -2295,7 +2314,7 @@ export default function DemoDash() {
 
             // Save tasks to database
             if (planData.subtasks) {
-              await fetch(`http://localhost:5000/api/projects/${projectId}/tasks`, {
+              await fetch(`https://localhost:5000/api/projects/${projectId}/tasks`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -2891,11 +2910,17 @@ export default function DemoDash() {
                   <p className="text-sm font-semibold">{userName || user?.name || user?.email?.split('@')[0] || 'User'}</p>
                   <p className="text-xs text-gray-500">Pro</p>
                 </div>
-                <button className="text-gray-500 hover:text-gray-300 transition-colors">
+                <button 
+                  onClick={() => {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    router.push('/login');
+                  }}
+                  className="text-red-400 hover:text-red-300 transition-colors"
+                  title="Logout"
+                >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <circle cx="8" cy="4" r="1" fill="currentColor"/>
-                    <circle cx="8" cy="8" r="1" fill="currentColor"/>
-                    <circle cx="8" cy="12" r="1" fill="currentColor"/>
+                    <path d="M11 4L14 7M14 7L11 10M14 7H6M9 13H4C3.5 13 3 12.5 3 12V4C3 3.5 3.5 3 4 3H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                   </svg>
                 </button>
               </div>
@@ -3203,17 +3228,17 @@ export default function DemoDash() {
               
               {/* Jira */}
               <div className="relative group">
-                <div className="w-8 h-8 bg-white/5 border border-white/10 hover:bg-[#4C3BCF]/20 hover:border-[#4C3BCF]/30 rounded-lg backdrop-blur-sm flex items-center justify-center transition-all p-1.5">
-                  <Image 
-                    src="/Images/jira.png" 
-                    alt="Jira" 
-                    width={20} 
-                    height={20}
-                    className="w-full h-full object-contain grayscale group-hover:grayscale-0 transition-all"
-                  />
+                <div 
+                  onClick={jiraConnected ? null : () => setShowJiraModal(true)}
+                  className={`w-8 h-8 ${jiraConnected ? 'bg-blue-500/20 border-blue-500/30 shadow-lg shadow-blue-500/10' : 'bg-white/5 border-white/10 hover:bg-blue-500/20 hover:border-blue-500/30'} border rounded-lg backdrop-blur-sm flex items-center justify-center ${jiraConnected ? '' : 'cursor-pointer'} transition-all p-1.5`}
+                >
+                  <svg className={`w-full h-full ${!jiraConnected ? 'opacity-50' : ''}`} viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.005-1.005zm5.723-5.756H5.736a5.215 5.215 0 0 0 5.215 5.214h2.129v2.058a5.218 5.218 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1.001-1.001z"/>
+                  </svg>
+                  {jiraConnected && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-400 rounded-full border-2 border-[#0a0a0a]"></span>}
                 </div>
                 <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/10 rounded-lg text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50 shadow-xl">
-                  Jira - Not Connected
+                  {jiraConnected ? 'Jira Connected' : 'Click to Connect Jira'}
                 </div>
               </div>
               
@@ -3230,6 +3255,22 @@ export default function DemoDash() {
                 </div>
                 <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/10 rounded-lg text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50 shadow-xl">
                   Asana - Not Connected
+                </div>
+              </div>
+              
+              {/* Notion */}
+              <div className="relative group">
+                <div className="w-8 h-8 bg-white/5 border border-white/10 hover:bg-black/20 hover:border-black/30 rounded-lg backdrop-blur-sm flex items-center justify-center transition-all p-1.5">
+                  <Image 
+                    src="/Images/notion.png" 
+                    alt="Notion" 
+                    width={20} 
+                    height={20}
+                    className="w-full h-full object-contain grayscale group-hover:grayscale-0 transition-all"
+                  />
+                </div>
+                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/10 rounded-lg text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50 shadow-xl">
+                  Notion - Not Connected
                 </div>
               </div>
               
@@ -4500,6 +4541,17 @@ export default function DemoDash() {
                           )}
                           <span className="text-xs text-gray-400 ml-auto">{assignedMember.role}</span>
                         </div>
+                        {jiraConnected && (
+                          <button
+                            onClick={() => {
+                              setSelectedTaskForJira(task);
+                              setShowJiraTaskModal(true);
+                            }}
+                            className="mt-2 w-full px-3 py-1.5 text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/30 transition-all"
+                          >
+                            Create Jira Issue
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -4677,6 +4729,205 @@ export default function DemoDash() {
           </div>
         </div>
       )}
+
+      {/* Jira Connection Modal */}
+      {showJiraModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-[#0f0f0f]/80 backdrop-blur-2xl border border-[#2a2a2a]/50 rounded-2xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-semibold mb-4">Connect Jira</h3>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const token = localStorage.getItem('token');
+              try {
+                const response = await fetch('https://localhost:5000/api/jira/connect', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    jira_url: formData.get('jira_url'),
+                    email: formData.get('email'),
+                    api_token: formData.get('api_token')
+                  })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                  alert('✅ Jira connected successfully!');
+                  setShowJiraModal(false);
+                  checkJiraConnection();
+                } else {
+                  alert(`❌ ${data.error || 'Failed to connect'}`);
+                }
+              } catch (error) {
+                alert('❌ Connection error');
+              }
+            }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Jira URL</label>
+                  <input
+                    type="url"
+                    name="jira_url"
+                    placeholder="https://your-domain.atlassian.net"
+                    required
+                    className="w-full px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="your-email@example.com"
+                    required
+                    className="w-full px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">API Token</label>
+                  <input
+                    type="password"
+                    name="api_token"
+                    placeholder="Your Jira API token"
+                    required
+                    className="w-full px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Get your API token from: <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" className="text-blue-400 hover:underline">Atlassian Account</a>
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowJiraModal(false)}
+                  className="flex-1 px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg hover:bg-[#2a2a2a] transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-500 rounded-lg hover:bg-blue-600 transition-all"
+                >
+                  Connect
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Jira Task Creation Modal */}
+      {showJiraTaskModal && selectedTaskForJira && (() => {
+        const loadJiraProjects = async () => {
+          const token = localStorage.getItem('token');
+          try {
+            const response = await fetch('https://localhost:5000/api/jira/projects', {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) {
+              setJiraProjects(data.projects || []);
+            }
+          } catch (error) {
+            console.error('Error loading Jira projects:', error);
+          }
+        };
+        if (jiraProjects.length === 0) loadJiraProjects();
+        return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-[#0f0f0f]/80 backdrop-blur-2xl border border-[#2a2a2a]/50 rounded-2xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-semibold mb-4">Create Jira Issue</h3>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const token = localStorage.getItem('token');
+              try {
+                const response = await fetch('https://localhost:5000/api/jira/create-issue', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    project_key: formData.get('project_key'),
+                    summary: selectedTaskForJira.title,
+                    description: selectedTaskForJira.description,
+                    issue_type: formData.get('issue_type')
+                  })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                  alert(`✅ Jira issue created: ${data.issue_key}`);
+                  setShowJiraTaskModal(false);
+                  setSelectedTaskForJira(null);
+                } else {
+                  alert(`❌ ${data.error || 'Failed to create issue'}`);
+                }
+              } catch (error) {
+                alert('❌ Error creating issue');
+              }
+            }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Task</label>
+                  <div className="p-3 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg">
+                    <p className="text-sm font-medium">{selectedTaskForJira.title}</p>
+                    <p className="text-xs text-gray-400 mt-1">{selectedTaskForJira.description}</p>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Jira Project *</label>
+                  <select
+                    name="project_key"
+                    required
+                    className="w-full px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white"
+                  >
+                    <option value="">Select project...</option>
+                    {jiraProjects.map((project) => (
+                      <option key={project.key} value={project.key}>
+                        {project.name} ({project.key})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Issue Type</label>
+                  <select
+                    name="issue_type"
+                    className="w-full px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white"
+                  >
+                    <option value="Task">Task</option>
+                    <option value="Story">Story</option>
+                    <option value="Bug">Bug</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowJiraTaskModal(false);
+                    setSelectedTaskForJira(null);
+                  }}
+                  className="flex-1 px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg hover:bg-[#2a2a2a] transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-500 rounded-lg hover:bg-blue-600 transition-all"
+                >
+                  Create Issue
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+        );
+      })()}
     </>
   );
 }
