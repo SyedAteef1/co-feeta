@@ -78,19 +78,22 @@ def slack_install():
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         user_id = payload['user_id']
         
-        # Store user_id in session for callback
-        session['pending_slack_user_id'] = user_id
-        session['auth_token'] = token
-        
         logger.info(f"Slack OAuth initiated for user: {user_id}")
         
         # Generate state for CSRF protection and store in database
         import secrets
         state = secrets.token_hex(16)
         
-        # Store state in database instead of session (more reliable in production)
+        # Store state in database (sessions don't persist in production)
         from app.database.mongodb import db
         oauth_states = db['oauth_states']
+        
+        # Clean up old states (older than 10 minutes)
+        from datetime import timedelta
+        cutoff_time = datetime.utcnow() - timedelta(minutes=10)
+        oauth_states.delete_many({"created_at": {"$lt": cutoff_time}})
+        
+        # Insert new state
         oauth_states.insert_one({
             "state": state,
             "user_id": user_id,
@@ -98,9 +101,7 @@ def slack_install():
             "type": "slack"
         })
         
-        # Also store in session as backup
-        session['slack_state'] = state
-        session['pending_slack_user_id'] = user_id
+        logger.info(f"✅ State stored in database: {state}")
         
         params = {
             "client_id": Config.SLACK_CLIENT_ID,
@@ -143,26 +144,24 @@ def slack_oauth_redirect():
         logger.error("❌ No authorization code received")
         return redirect(f"{Config.FRONTEND_URL}/slack?error=no_code")
     
-    # Verify state to prevent CSRF (check database first, then session)
+    # Verify state to prevent CSRF (use database only - sessions don't work in production)
     from app.database.mongodb import db
     oauth_states = db['oauth_states']
     state_doc = oauth_states.find_one({"state": state, "type": "slack"})
     
-    if not state_doc and state != session.get('slack_state'):
-        logger.error(f"State mismatch - state: {state}, session: {session.get('slack_state')}")
+    if not state_doc:
+        logger.error(f"State not found in database - state: {state}")
+        logger.error(f"This means the OAuth flow was interrupted or state expired")
         return redirect(f"{Config.FRONTEND_URL}/slack?error=invalid_state")
     
-    # Get user_id from database if session doesn't have it
-    if state_doc:
-        user_id = state_doc.get('user_id')
-        # Clean up used state
-        oauth_states.delete_one({"_id": state_doc["_id"]})
-    else:
-        user_id = session.get('pending_slack_user_id')
+    # Get user_id from database
+    user_id = state_doc.get('user_id')
     
-    # user_id should already be set from state verification above
+    # Clean up used state
+    oauth_states.delete_one({"_id": state_doc["_id"]})
+    
     if not user_id:
-        logger.error("No user_id in session")
+        logger.error("No user_id in state document")
         return redirect(f"{Config.FRONTEND_URL}/slack?error=session_expired")
     
     logger.info(f"✅ Authorization code received for user: {user_id}")
@@ -197,9 +196,7 @@ def slack_oauth_redirect():
         from datetime import datetime
         save_token(user_id, team_id, access_token, scope, bot_token)
         
-        # Clear session
-        session.pop('pending_slack_user_id', None)
-        session.pop('slack_state', None)
+        # State already cleaned up above
         
         logger.info("✅ Token exchange successful!")
         logger.info(f"👤 User ID: {user_id}")
