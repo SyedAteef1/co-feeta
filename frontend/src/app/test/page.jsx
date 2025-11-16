@@ -84,7 +84,7 @@ export default function TestPage() {
 
   const checkFollowupStatus = async () => {
     try {
-      const res = await fetch('${API_BASE_URL}/api/followup/status');
+      const res = await fetch(`${API_BASE_URL}/api/followup/status`);
       const data = await res.json();
       setFollowupActive(data.active);
     } catch (err) {
@@ -96,7 +96,7 @@ export default function TestPage() {
     setFollowupLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('${API_BASE_URL}/api/followup/toggle', {
+      const res = await fetch(`${API_BASE_URL}/api/followup/toggle`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -152,7 +152,7 @@ export default function TestPage() {
     }
     
     try {
-      const response = await fetch('${API_BASE_URL}/auth/me', {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -180,7 +180,7 @@ export default function TestPage() {
   const checkGithubConnection = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('${API_BASE_URL}/github/api/check_connection', {
+      const response = await fetch(`${API_BASE_URL}/github/api/check_connection`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -199,7 +199,7 @@ export default function TestPage() {
     if (!token) return;
     
     try {
-      const response = await fetch('${API_BASE_URL}/api/projects', {
+      const response = await fetch(`${API_BASE_URL}/api/projects`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -216,7 +216,7 @@ export default function TestPage() {
   const fetchRepos = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('${API_BASE_URL}/github/api/repos', {
+      const response = await fetch(`${API_BASE_URL}/github/api/repos`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -235,7 +235,7 @@ export default function TestPage() {
     if (!token) return;
     
     try {
-      const response = await fetch('${API_BASE_URL}/api/projects', {
+      const response = await fetch(`${API_BASE_URL}/api/projects`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

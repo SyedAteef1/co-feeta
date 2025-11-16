@@ -29,7 +29,7 @@ export default function TeamsPage() {
 
   const fetchAllMembers = async () => {
     const token = localStorage.getItem('token');
-    const res = await fetch('${API_BASE_URL}/api/teams/members', {
+    const res = await fetch(`${API_BASE_URL}/api/teams/members`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const data = await res.json();
@@ -38,7 +38,7 @@ export default function TeamsPage() {
 
   const fetchProjects = async () => {
     const token = localStorage.getItem('token');
-    const res = await fetch('${API_BASE_URL}/api/projects', {
+    const res = await fetch(`${API_BASE_URL}/api/projects`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const data = await res.json();
@@ -64,7 +64,7 @@ export default function TeamsPage() {
     
     const token = localStorage.getItem('token');
     
-    const res = await fetch('${API_BASE_URL}/api/teams/members', {
+    const res = await fetch(`${API_BASE_URL}/api/teams/members`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
       body: formData
@@ -373,7 +373,7 @@ export default function TeamsPage() {
                     
                     try {
                       const token = localStorage.getItem('token');
-                      const res = await fetch('${API_BASE_URL}/api/teams/preview', {
+                      const res = await fetch(`${API_BASE_URL}/api/teams/preview`, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${token}` },
                         body: formData

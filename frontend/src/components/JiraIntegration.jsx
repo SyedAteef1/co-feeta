@@ -19,7 +19,7 @@ export default function JiraIntegration({ onConnect, isConnected }) {
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch('${API_BASE_URL}/api/jira/connect', {
+      const response = await fetch(`${API_BASE_URL}/api/jira/connect`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

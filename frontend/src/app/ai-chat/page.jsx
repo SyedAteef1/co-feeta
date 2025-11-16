@@ -87,7 +87,7 @@ export default function AIChatInterface() {
     }
     
     try {
-      const response = await fetch('${API_BASE_URL}/auth/me', {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -115,7 +115,7 @@ export default function AIChatInterface() {
   const checkGithubConnection = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('${API_BASE_URL}/api/github/check_connection', {
+      const response = await fetch(`${API_BASE_URL}/api/github/check_connection`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -141,7 +141,7 @@ export default function AIChatInterface() {
   const fetchRepos = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('${API_BASE_URL}/github/api/repos', {
+      const response = await fetch(`${API_BASE_URL}/github/api/repos`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {

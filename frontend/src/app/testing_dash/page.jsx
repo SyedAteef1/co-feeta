@@ -201,7 +201,7 @@ export default function TestingDash() {
     }
 
     try {
-      const response = await fetch('${API_BASE_URL}/auth/me', {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -228,7 +228,7 @@ export default function TestingDash() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('${API_BASE_URL}/api/projects', {
+      const response = await fetch(`${API_BASE_URL}/api/projects`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

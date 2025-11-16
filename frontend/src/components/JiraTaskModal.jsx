@@ -15,7 +15,7 @@ export default function JiraTaskModal({ task, onClose, onSuccess }) {
   const loadProjects = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('${API_BASE_URL}/api/jira/projects', {
+      const response = await fetch(`${API_BASE_URL}/api/jira/projects`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -37,7 +37,7 @@ export default function JiraTaskModal({ task, onClose, onSuccess }) {
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch('${API_BASE_URL}/api/jira/create-issue', {
+      const response = await fetch(`${API_BASE_URL}/api/jira/create-issue`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -28,7 +28,7 @@ export default function SlackConnectButton() {
     }
 
     try {
-      const res = await fetch('${API_BASE_URL}/slack/api/status', {
+      const res = await fetch(`${API_BASE_URL}/slack/api/status`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -46,7 +46,7 @@ export default function SlackConnectButton() {
   const connectSlackToUser = async (slackUserId, slackTeamId) => {
     const token = localStorage.getItem('token');
     try {
-      await fetch('${API_BASE_URL}/api/slack/connect', {
+      await fetch(`${API_BASE_URL}/api/slack/connect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

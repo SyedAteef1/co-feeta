@@ -15,7 +15,7 @@ export default function Dashboard() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      fetch('${API_BASE_URL}/slack/api/list_conversations', {
+      fetch(`${API_BASE_URL}/slack/api/list_conversations`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => res.json())
@@ -34,7 +34,7 @@ export default function Dashboard() {
     if (!token || !selectedChannel) return;
 
     try {
-      const response = await fetch('${API_BASE_URL}/api/followup/toggle', {
+      const response = await fetch(`${API_BASE_URL}/api/followup/toggle`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

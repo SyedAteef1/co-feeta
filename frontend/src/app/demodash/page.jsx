@@ -166,7 +166,7 @@ function TasksPage({ user }) {
     if (!token) return;
 
     try {
-      const response = await fetch('${API_BASE_URL}/api/projects', {
+      const response = await fetch(`${API_BASE_URL}/api/projects`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -195,7 +195,7 @@ function TasksPage({ user }) {
     try {
       console.log('📡 Fetching tasks from API: ${API_BASE_URL}/api/tasks');
       
-      const response = await fetch('${API_BASE_URL}/api/tasks', {
+      const response = await fetch(`${API_BASE_URL}/api/tasks`, {
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -698,7 +698,7 @@ function TeamsPage({ user }) {
     if (!token) return;
 
     try {
-      const response = await fetch('${API_BASE_URL}/api/teams/members', {
+      const response = await fetch(`${API_BASE_URL}/api/teams/members`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -727,7 +727,7 @@ function TeamsPage({ user }) {
       const formData = new FormData();
       formData.append('resume', file);
 
-      const response = await fetch('${API_BASE_URL}/api/teams/analyze_resume', {
+      const response = await fetch(`${API_BASE_URL}/api/teams/analyze_resume`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -764,7 +764,7 @@ function TeamsPage({ user }) {
       formData.append('email', email);
       formData.append('selected_roles', JSON.stringify(selectedRoles));
 
-      const response = await fetch('${API_BASE_URL}/api/teams/members', {
+      const response = await fetch(`${API_BASE_URL}/api/teams/members`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -1201,7 +1201,7 @@ export default function DemoDash() {
       }
 
       // Load projects
-      const projectsRes = await fetch('${API_BASE_URL}/api/projects', {
+      const projectsRes = await fetch(`${API_BASE_URL}/api/projects`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (projectsRes.ok) {
@@ -1231,7 +1231,7 @@ export default function DemoDash() {
       }
 
       // Load team members
-      const membersRes = await fetch('${API_BASE_URL}/api/teams/members', {
+      const membersRes = await fetch(`${API_BASE_URL}/api/teams/members`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (membersRes.ok) {
@@ -1242,7 +1242,7 @@ export default function DemoDash() {
 
       // Load all tasks across all projects to calculate stats
       const allTasks = [];
-      const projectsRes2 = await fetch('${API_BASE_URL}/api/projects', {
+      const projectsRes2 = await fetch(`${API_BASE_URL}/api/projects`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (projectsRes2.ok) {
@@ -1318,7 +1318,7 @@ export default function DemoDash() {
     }
     
     try {
-      const response = await fetch('${API_BASE_URL}/auth/me', {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -1345,7 +1345,7 @@ export default function DemoDash() {
   const checkGithubConnection = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('${API_BASE_URL}/github/api/check_connection', {
+      const response = await fetch(`${API_BASE_URL}/github/api/check_connection`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -1362,7 +1362,7 @@ export default function DemoDash() {
   const fetchRepos = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('${API_BASE_URL}/github/api/repos', {
+      const response = await fetch(`${API_BASE_URL}/github/api/repos`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -1386,7 +1386,7 @@ export default function DemoDash() {
   const checkSlackConnection = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('${API_BASE_URL}/slack/api/status', {
+      const response = await fetch(`${API_BASE_URL}/slack/api/status`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -1409,7 +1409,7 @@ export default function DemoDash() {
   const checkJiraConnection = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('${API_BASE_URL}/api/jira/status', {
+      const response = await fetch(`${API_BASE_URL}/api/jira/status`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -1481,7 +1481,7 @@ export default function DemoDash() {
         if (!token) return;
         
         try {
-          const channelsRes = await fetch('${API_BASE_URL}/slack/api/list_conversations', {
+          const channelsRes = await fetch(`${API_BASE_URL}/slack/api/list_conversations`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           
@@ -1528,7 +1528,7 @@ export default function DemoDash() {
 
       try {
         // Get all channels
-        const channelsRes = await fetch('${API_BASE_URL}/slack/api/list_conversations', {
+        const channelsRes = await fetch(`${API_BASE_URL}/slack/api/list_conversations`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -1876,7 +1876,7 @@ export default function DemoDash() {
         
         // Fetch Slack channels (optional - don't fail if this fails)
         try {
-          const channelsRes = await fetch('${API_BASE_URL}/slack/api/list_conversations', {
+          const channelsRes = await fetch(`${API_BASE_URL}/slack/api/list_conversations`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           
@@ -2003,7 +2003,7 @@ export default function DemoDash() {
     if (!token) return;
     
     try {
-      const response = await fetch('${API_BASE_URL}/api/projects', {
+      const response = await fetch(`${API_BASE_URL}/api/projects`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -2023,7 +2023,7 @@ export default function DemoDash() {
     if (!token) return;
     
     try {
-      const response = await fetch('${API_BASE_URL}/api/projects', {
+      const response = await fetch(`${API_BASE_URL}/api/projects`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -4812,7 +4812,7 @@ export default function DemoDash() {
               const formData = new FormData(e.target);
               const token = localStorage.getItem('token');
               try {
-                const response = await fetch('${API_BASE_URL}/api/jira/connect', {
+                const response = await fetch(`${API_BASE_URL}/api/jira/connect`, {
                   method: 'POST',
                   headers: {
                     'Authorization': `Bearer ${token}`,
@@ -4896,7 +4896,7 @@ export default function DemoDash() {
         const loadJiraProjects = async () => {
           const token = localStorage.getItem('token');
           try {
-            const response = await fetch('${API_BASE_URL}/api/jira/projects', {
+            const response = await fetch(`${API_BASE_URL}/api/jira/projects`, {
               headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -4917,7 +4917,7 @@ export default function DemoDash() {
               const formData = new FormData(e.target);
               const token = localStorage.getItem('token');
               try {
-                const response = await fetch('${API_BASE_URL}/api/jira/create-issue', {
+                const response = await fetch(`${API_BASE_URL}/api/jira/create-issue`, {
                   method: 'POST',
                   headers: {
                     'Authorization': `Bearer ${token}`,

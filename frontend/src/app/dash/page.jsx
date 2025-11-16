@@ -111,7 +111,7 @@ export default function DashPage() {
     }
     
     try {
-      const response = await fetch('${API_BASE_URL}/auth/me', {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -142,7 +142,7 @@ export default function DashPage() {
     if (!token) return;
     
     try {
-      const response = await fetch('${API_BASE_URL}/api/projects', {
+      const response = await fetch(`${API_BASE_URL}/api/projects`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -163,7 +163,7 @@ export default function DashPage() {
     if (!token) return;
     
     try {
-      const response = await fetch('${API_BASE_URL}/api/projects', {
+      const response = await fetch(`${API_BASE_URL}/api/projects`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -200,7 +200,7 @@ export default function DashPage() {
   const fetchRepos = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('${API_BASE_URL}/github/api/repos', {
+      const response = await fetch(`${API_BASE_URL}/github/api/repos`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {

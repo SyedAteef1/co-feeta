@@ -88,7 +88,7 @@ export const GitHubIntegration = () => {
     
     setAnalyzingTask(true);
     try {
-      const response = await fetch('${API_BASE_URL}/github/api/analyze_task', {
+      const response = await fetch(`${API_BASE_URL}/github/api/analyze_task`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
