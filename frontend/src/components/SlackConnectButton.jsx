@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/config/api';
 "use client";
 import { useState, useEffect } from "react";
 
@@ -27,7 +28,7 @@ export default function SlackConnectButton() {
     }
 
     try {
-      const res = await fetch('https://localhost:5000/slack/api/status', {
+      const res = await fetch('${API_BASE_URL}/slack/api/status', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -45,7 +46,7 @@ export default function SlackConnectButton() {
   const connectSlackToUser = async (slackUserId, slackTeamId) => {
     const token = localStorage.getItem('token');
     try {
-      await fetch('https://localhost:5000/api/slack/connect', {
+      await fetch('${API_BASE_URL}/api/slack/connect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -69,7 +70,7 @@ export default function SlackConnectButton() {
       alert("Please login first");
       return;
     }
-    window.location.href = `https://localhost:5000/slack/install?token=${token}`;
+    window.location.href = `${API_BASE_URL}/slack/install?token=${token}`;
   };
 
   if (checking) return null;

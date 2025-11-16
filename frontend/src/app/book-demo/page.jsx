@@ -1,4 +1,5 @@
 'use client';
+import { API_BASE_URL } from '@/config/api';
 import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -30,7 +31,7 @@ export default function BookDemo() {
     setError('');
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:5000';
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_BASE_URL}';
       const response = await fetch(`${API_URL}/api/demo/book`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

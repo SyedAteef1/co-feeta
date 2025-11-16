@@ -1,4 +1,5 @@
 'use client';
+import { API_BASE_URL } from '@/config/api';
 import { useState, useEffect } from 'react';
 
 export default function SlackUsersPage() {
@@ -21,7 +22,7 @@ export default function SlackUsersPage() {
         return;
       }
 
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:5000';
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_BASE_URL}';
       console.log('Fetching from:', `${API_URL}/slack/api/list-users`);
       console.log('Token:', token ? 'Present' : 'Missing');
       
@@ -65,7 +66,7 @@ export default function SlackUsersPage() {
   const checkUserStatus = async (userName) => {
     try {
       const token = localStorage.getItem('token');
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:5000';
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_BASE_URL}';
       
       const response = await fetch(`${API_URL}/slack/api/check-user-status`, {
         method: 'POST',

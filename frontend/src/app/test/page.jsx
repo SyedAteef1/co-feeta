@@ -1,4 +1,5 @@
 'use client';
+import { API_BASE_URL } from '@/config/api';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -57,7 +58,7 @@ export default function TestPage() {
     const token = localStorage.getItem('token');
     if (token) {
       try {
-        const res = await fetch(`https://localhost:5000/slack/api/list_conversations`, {
+        const res = await fetch(`${API_BASE_URL}/slack/api/list_conversations`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -83,7 +84,7 @@ export default function TestPage() {
 
   const checkFollowupStatus = async () => {
     try {
-      const res = await fetch('https://localhost:5000/api/followup/status');
+      const res = await fetch('${API_BASE_URL}/api/followup/status');
       const data = await res.json();
       setFollowupActive(data.active);
     } catch (err) {
@@ -95,7 +96,7 @@ export default function TestPage() {
     setFollowupLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('https://localhost:5000/api/followup/toggle', {
+      const res = await fetch('${API_BASE_URL}/api/followup/toggle', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -135,7 +136,7 @@ export default function TestPage() {
   const fetchConversationHistory = async () => {
     if (!sessionId) return;
     try {
-      const res = await fetch(`https://localhost:5000/api/conversation_history/${sessionId}`);
+      const res = await fetch(`${API_BASE_URL}/api/conversation_history/${sessionId}`);
       const data = await res.json();
       setConversationHistory(data.conversations || []);
     } catch (err) {
@@ -151,7 +152,7 @@ export default function TestPage() {
     }
     
     try {
-      const response = await fetch('https://localhost:5000/auth/me', {
+      const response = await fetch('${API_BASE_URL}/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -179,7 +180,7 @@ export default function TestPage() {
   const checkGithubConnection = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('https://localhost:5000/github/api/check_connection', {
+      const response = await fetch('${API_BASE_URL}/github/api/check_connection', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -198,7 +199,7 @@ export default function TestPage() {
     if (!token) return;
     
     try {
-      const response = await fetch('https://localhost:5000/api/projects', {
+      const response = await fetch('${API_BASE_URL}/api/projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -215,7 +216,7 @@ export default function TestPage() {
   const fetchRepos = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('https://localhost:5000/github/api/repos', {
+      const response = await fetch('${API_BASE_URL}/github/api/repos', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -234,7 +235,7 @@ export default function TestPage() {
     if (!token) return;
     
     try {
-      const response = await fetch('https://localhost:5000/api/projects', {
+      const response = await fetch('${API_BASE_URL}/api/projects', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -270,7 +271,7 @@ export default function TestPage() {
     
     try {
       const projectId = selectedProject._id || selectedProject.id;
-      const response = await fetch(`https://localhost:5000/api/projects/${projectId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -305,7 +306,7 @@ export default function TestPage() {
       alert("Please login first");
       return;
     }
-    window.location.href = `https://localhost:5000/github/install?token=${token}`;
+    window.location.href = `${API_BASE_URL}/github/install?token=${token}`;
   };
 
   const sendMessage = async () => {
@@ -332,7 +333,7 @@ export default function TestPage() {
       const projectId = selectedProject._id || selectedProject.id;
       
       try {
-        await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
+        await fetch(`${API_BASE_URL}/api/projects/${projectId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -352,7 +353,7 @@ export default function TestPage() {
     try {
       const [owner, repoName] = selectedProject.repo?.full_name?.split('/') || [];
 
-      const res = await fetch("https://localhost:5000/api/analyze", {
+      const res = await fetch("${API_BASE_URL}/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -381,7 +382,7 @@ export default function TestPage() {
 
       if (data.status === "clear" || data.status === "needs_context") {
         const token = localStorage.getItem('token');
-        const planRes = await fetch("https://localhost:5000/api/generate_plan", {
+        const planRes = await fetch("${API_BASE_URL}/api/generate_plan", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
@@ -416,7 +417,7 @@ export default function TestPage() {
         const projectId = selectedProject._id || selectedProject.id;
         
         try {
-          await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
+          await fetch(`${API_BASE_URL}/api/projects/${projectId}/messages`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -491,7 +492,7 @@ export default function TestPage() {
       console.log("📡 Sending to /api/generate_plan:", requestBody);
 
       const token = localStorage.getItem('token');
-      const planRes = await fetch("https://localhost:5000/api/generate_plan", {
+      const planRes = await fetch("${API_BASE_URL}/api/generate_plan", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -523,7 +524,7 @@ export default function TestPage() {
           const projectId = selectedProject._id || selectedProject.id;
           
           try {
-            await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
+            await fetch(`${API_BASE_URL}/api/projects/${projectId}/messages`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -559,7 +560,7 @@ export default function TestPage() {
     setLoadingSummary(true);
 
     try {
-      const historyRes = await fetch(`https://localhost:5000/slack/api/channel_history?channel=${channelId}&limit=50`, {
+      const historyRes = await fetch(`${API_BASE_URL}/slack/api/channel_history?channel=${channelId}&limit=50`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -581,7 +582,7 @@ export default function TestPage() {
         return;
       }
 
-      const summaryRes = await fetch(`https://localhost:5000/slack/api/summarize_channel`, {
+      const summaryRes = await fetch(`${API_BASE_URL}/slack/api/summarize_channel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -622,7 +623,7 @@ export default function TestPage() {
     try {
       const summaryMessage = `🚀 *New Task Breakdown*\n\n*Original Prompt:* ${originalPrompt}\n\n*Main Goal:* ${plan.goal}\n*Total Subtasks:* ${plan.subtasks.length}\n\n---\n`;
       
-      await fetch("https://localhost:5000/slack/api/send_message", {
+      await fetch("${API_BASE_URL}/slack/api/send_message", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -638,7 +639,7 @@ export default function TestPage() {
         const subtask = plan.subtasks[i];
         const message = `📝 *Task ${i + 1}/${plan.subtasks.length}: ${subtask.title}*\n\n*Description:* ${subtask.description}\n*Assigned to:* ${subtask.assigned_to}\n*Deadline:* ${subtask.deadline}\n*Expected Output:* ${subtask.output}\n*Clarity Score:* ${subtask.clarity_score}%`;
         
-        await fetch("https://localhost:5000/slack/api/send_message", {
+        await fetch("${API_BASE_URL}/slack/api/send_message", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
@@ -686,7 +687,7 @@ export default function TestPage() {
     
     try {
       const projectId = project._id || project.id;
-      const response = await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
+      const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/messages`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       

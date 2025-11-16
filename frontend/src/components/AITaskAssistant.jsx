@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/config/api';
 "use client";
 import { useState, useEffect } from "react";
 
@@ -16,7 +17,7 @@ function SubtaskCard({ subtask, index }) {
 
   const fetchChannels = async (userId) => {
     try {
-      const res = await fetch(`https://localhost:5000/api/list_conversations?user_id=${userId}`);
+      const res = await fetch(`${API_BASE_URL}/api/list_conversations?user_id=${userId}`);
       const data = await res.json();
       if (data.channels) {
         setChannels(data.channels);
@@ -34,7 +35,7 @@ function SubtaskCard({ subtask, index }) {
     const message = `📝 *New Task Assignment*\n\n*Task:* ${subtask.title || subtask.task}\n*Description:* ${subtask.description}\n*Role:* ${subtask.role || subtask.assigned_to}\n*Deadline:* ${subtask.deadline}\n*Output:* ${subtask.output}`;
     
     try {
-      await fetch("https://localhost:5000/api/send_message", {
+      await fetch("${API_BASE_URL}/api/send_message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -145,7 +146,7 @@ export default function AITaskAssistant({ repos, githubToken }) {
       const slackUserId = localStorage.getItem('slack_user_id');
       if (slackUserId) {
         try {
-          const res = await fetch(`https://localhost:5000/api/list_conversations?user_id=${slackUserId}`);
+          const res = await fetch(`${API_BASE_URL}/api/list_conversations?user_id=${slackUserId}`);
           const data = await res.json();
           if (data.channels) {
             setChannels(data.channels);
@@ -164,7 +165,7 @@ export default function AITaskAssistant({ repos, githubToken }) {
       if (!sessionId) return;
       
       try {
-        const res = await fetch(`https://localhost:5000/api/conversation_history/${sessionId}`);
+        const res = await fetch(`${API_BASE_URL}/api/conversation_history/${sessionId}`);
         const data = await res.json();
         setConversationHistory(data.conversations || []);
         addLog(`📜 Loaded ${data.conversations?.length || 0} previous conversations`);
@@ -192,7 +193,7 @@ export default function AITaskAssistant({ repos, githubToken }) {
       // Send summary message first
       const summaryMessage = `🚀 *New Task Breakdown*\n\n*Original Prompt:* ${originalPrompt}\n\n*Main Goal:* ${plan.goal}\n*Total Subtasks:* ${plan.subtasks.length}\n\n---\n`;
       
-      await fetch("https://localhost:5000/api/send_message", {
+      await fetch("${API_BASE_URL}/api/send_message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -207,7 +208,7 @@ export default function AITaskAssistant({ repos, githubToken }) {
         const subtask = plan.subtasks[i];
         const message = `📝 *Task ${i + 1}/${plan.subtasks.length}: ${subtask.title || subtask.task}*\n\n*Description:* ${subtask.description}\n*Role:* ${subtask.role || subtask.assigned_to}\n*Deadline:* ${subtask.deadline}\n*Expected Output:* ${subtask.output}\n*Clarity Score:* ${subtask.clarity_score}%`;
         
-        await fetch("https://localhost:5000/api/send_message", {
+        await fetch("${API_BASE_URL}/api/send_message", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -269,7 +270,7 @@ export default function AITaskAssistant({ repos, githubToken }) {
         addLog(`🔄 Continuing session: ${sessionId}`);
       }
       
-      const res = await fetch("https://localhost:5000/api/analyze", {
+      const res = await fetch("${API_BASE_URL}/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -314,7 +315,7 @@ export default function AITaskAssistant({ repos, githubToken }) {
     try {
       const token = localStorage.getItem('token');
       addLog("📡 Calling /api/generate_plan endpoint");
-      const res = await fetch("https://localhost:5000/api/generate_plan", {
+      const res = await fetch("${API_BASE_URL}/api/generate_plan", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

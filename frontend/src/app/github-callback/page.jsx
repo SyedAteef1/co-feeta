@@ -1,4 +1,5 @@
 'use client';
+import { API_BASE_URL } from '@/config/api';
 
 import { useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -11,7 +12,7 @@ function CallbackContent() {
   useEffect(() => {
     const code = searchParams.get('code');
     if (code) {
-      window.location.href = `https://localhost:5000/github/callback?code=${code}`;
+      window.location.href = `${API_BASE_URL}/github/callback?code=${code}`;
     }
   }, [searchParams, router]);
 

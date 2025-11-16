@@ -1,4 +1,5 @@
 'use client';
+import { API_BASE_URL } from '@/config/api';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -110,7 +111,7 @@ export default function DashPage() {
     }
     
     try {
-      const response = await fetch('https://localhost:5000/auth/me', {
+      const response = await fetch('${API_BASE_URL}/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -141,7 +142,7 @@ export default function DashPage() {
     if (!token) return;
     
     try {
-      const response = await fetch('https://localhost:5000/api/projects', {
+      const response = await fetch('${API_BASE_URL}/api/projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -162,7 +163,7 @@ export default function DashPage() {
     if (!token) return;
     
     try {
-      const response = await fetch('https://localhost:5000/api/projects', {
+      const response = await fetch('${API_BASE_URL}/api/projects', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -199,7 +200,7 @@ export default function DashPage() {
   const fetchRepos = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('https://localhost:5000/github/api/repos', {
+      const response = await fetch('${API_BASE_URL}/github/api/repos', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -217,7 +218,7 @@ export default function DashPage() {
     
     try {
       const projectId = selectedProject._id || selectedProject.id;
-      const response = await fetch(`https://localhost:5000/api/projects/${projectId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -254,7 +255,7 @@ export default function DashPage() {
       
       try {
         const projectId = project._id || project.id;
-        const response = await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
+        const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/messages`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -307,7 +308,7 @@ export default function DashPage() {
       const projectId = selectedProject._id || selectedProject.id;
       
       try {
-        await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
+        await fetch(`${API_BASE_URL}/api/projects/${projectId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -327,7 +328,7 @@ export default function DashPage() {
     try {
       const [owner, repoName] = selectedProject.repo?.full_name?.split('/') || [];
 
-      const res = await fetch("https://localhost:5000/api/analyze", {
+      const res = await fetch("${API_BASE_URL}/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -356,7 +357,7 @@ export default function DashPage() {
 
       if (data.status === "clear" || data.status === "needs_context") {
         const token = localStorage.getItem('token');
-        const planRes = await fetch("https://localhost:5000/api/generate_plan", {
+        const planRes = await fetch("${API_BASE_URL}/api/generate_plan", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
@@ -391,7 +392,7 @@ export default function DashPage() {
         const projectId = selectedProject._id || selectedProject.id;
         
         try {
-          await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
+          await fetch(`${API_BASE_URL}/api/projects/${projectId}/messages`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -1032,7 +1033,7 @@ export default function DashPage() {
                         <button
                           onClick={() => {
                             const token = localStorage.getItem('token');
-                            window.location.href = `https://localhost:5000/github/install?token=${token}`;
+                            window.location.href = `${API_BASE_URL}/github/install?token=${token}`;
                           }}
                           className="px-6 py-3 bg-[#2A2A2A] hover:bg-[#333333] rounded-lg transition-colors"
                         >

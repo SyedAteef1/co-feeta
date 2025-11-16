@@ -1,4 +1,5 @@
 'use client';
+import { API_BASE_URL } from '@/config/api';
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
@@ -26,7 +27,7 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:5000';
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || '${API_BASE_URL}';
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
       const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
@@ -48,7 +49,7 @@ function LoginForm() {
       window.location.href = '/demodash';
     } catch (err) {
       console.error('Login error:', err);
-      setError(`Connection error: ${err.message}. Make sure backend is running on https://localhost:5000 and you've accepted the SSL certificate`);
+      setError(`Connection error: ${err.message}. Make sure backend is running on ${API_BASE_URL} and you've accepted the SSL certificate`);
       setLoading(false);
     }
   };

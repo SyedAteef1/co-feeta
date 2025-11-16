@@ -1,4 +1,5 @@
 'use client';
+import { API_BASE_URL } from '@/config/api';
 import { useState } from 'react';
 
 export default function TaskFollowupButton({ task, onFollowupSent }) {
@@ -8,7 +9,7 @@ export default function TaskFollowupButton({ task, onFollowupSent }) {
     setIsSending(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://localhost:5000/api/tasks/${task.id}/follow-up`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/${task.id}/follow-up`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -1,4 +1,5 @@
 'use client';
+import { API_BASE_URL } from '@/config/api';
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -36,13 +37,13 @@ export const GitHubIntegration = () => {
   }, [searchParams]);
 
   const handleConnect = () => {
-    window.location.href = "https://localhost:5000/github/install";
+    window.location.href = "${API_BASE_URL}/github/install";
   };
 
   const fetchRepos = async (user_id) => {
     setLoading(true);
     try {
-      const response = await fetch(`https://localhost:5000/github/api/repos?user_id=${user_id}`);
+      const response = await fetch(`${API_BASE_URL}/github/api/repos?user_id=${user_id}`);
       const data = await response.json();
       setRepos(data);
     } catch (error) {
@@ -57,7 +58,7 @@ export const GitHubIntegration = () => {
     setLoading(true);
     try {
       const response = await fetch(
-        `https://localhost:5000/github/api/search?user_id=${userId}&query=${encodeURIComponent(searchQuery)}&repo=${selectedRepo.full_name}`
+        `${API_BASE_URL}/github/api/search?user_id=${userId}&query=${encodeURIComponent(searchQuery)}&repo=${selectedRepo.full_name}`
       );
       const data = await response.json();
       setSearchResults(data.items || []);
@@ -71,7 +72,7 @@ export const GitHubIntegration = () => {
     setLoading(true);
     try {
       const response = await fetch(
-        `https://localhost:5000/github/api/repo_details?user_id=${userId}&owner=${repo.owner.login}&repo=${repo.name}`
+        `${API_BASE_URL}/github/api/repo_details?user_id=${userId}&owner=${repo.owner.login}&repo=${repo.name}`
       );
       const data = await response.json();
       setRepoDetails(data);
@@ -87,7 +88,7 @@ export const GitHubIntegration = () => {
     
     setAnalyzingTask(true);
     try {
-      const response = await fetch('https://localhost:5000/github/api/analyze_task', {
+      const response = await fetch('${API_BASE_URL}/github/api/analyze_task', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

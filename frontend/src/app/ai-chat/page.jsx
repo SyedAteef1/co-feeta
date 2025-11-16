@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/config/api';
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -48,7 +49,7 @@ export default function AIChatInterface() {
       const slackUserId = localStorage.getItem('slack_user_id');
       if (slackUserId) {
         try {
-          const res = await fetch(`https://localhost:5000/api/list_conversations?user_id=${slackUserId}`);
+          const res = await fetch(`${API_BASE_URL}/api/list_conversations?user_id=${slackUserId}`);
           const data = await res.json();
           if (data.channels) {
             setChannels(data.channels);
@@ -70,7 +71,7 @@ export default function AIChatInterface() {
   const fetchConversationHistory = async () => {
     if (!sessionId) return;
     try {
-      const res = await fetch(`https://localhost:5000/api/conversation_history/${sessionId}`);
+      const res = await fetch(`${API_BASE_URL}/api/conversation_history/${sessionId}`);
       const data = await res.json();
       setConversationHistory(data.conversations || []);
     } catch (err) {
@@ -86,7 +87,7 @@ export default function AIChatInterface() {
     }
     
     try {
-      const response = await fetch('https://localhost:5000/auth/me', {
+      const response = await fetch('${API_BASE_URL}/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -114,7 +115,7 @@ export default function AIChatInterface() {
   const checkGithubConnection = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('https://localhost:5000/api/github/check_connection', {
+      const response = await fetch('${API_BASE_URL}/api/github/check_connection', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -140,7 +141,7 @@ export default function AIChatInterface() {
   const fetchRepos = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('https://localhost:5000/github/api/repos', {
+      const response = await fetch('${API_BASE_URL}/github/api/repos', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -179,7 +180,7 @@ export default function AIChatInterface() {
 
   const connectGithub = () => {
     const token = localStorage.getItem('token');
-    window.location.href = `https://localhost:5000/github/install?token=${token}`;
+    window.location.href = `${API_BASE_URL}/github/install?token=${token}`;
   };
 
   const handleLogout = async () => {
@@ -234,7 +235,7 @@ export default function AIChatInterface() {
       const [owner, repoName] = selectedProject.repo?.full_name?.split('/') || [];
 
       // Call analyze endpoint
-      const res = await fetch("https://localhost:5000/api/analyze", {
+      const res = await fetch("${API_BASE_URL}/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -264,7 +265,7 @@ export default function AIChatInterface() {
       if (data.status === "clear" || data.status === "needs_context") {
         // Generate plan automatically
         const token = localStorage.getItem('token');
-        const planRes = await fetch("https://localhost:5000/api/generate_plan", {
+        const planRes = await fetch("${API_BASE_URL}/api/generate_plan", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
@@ -326,7 +327,7 @@ export default function AIChatInterface() {
 
     try {
       const token = localStorage.getItem('token');
-      const planRes = await fetch("https://localhost:5000/api/generate_plan", {
+      const planRes = await fetch("${API_BASE_URL}/api/generate_plan", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -370,7 +371,7 @@ export default function AIChatInterface() {
       // Send summary message
       const summaryMessage = `🚀 *New Task Breakdown*\n\n*Original Prompt:* ${originalPrompt}\n\n*Main Goal:* ${plan.goal}\n*Total Subtasks:* ${plan.subtasks.length}\n\n---\n`;
       
-      await fetch("https://localhost:5000/api/send_message", {
+      await fetch("${API_BASE_URL}/api/send_message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -385,7 +386,7 @@ export default function AIChatInterface() {
         const subtask = plan.subtasks[i];
         const message = `📝 *Task ${i + 1}/${plan.subtasks.length}: ${subtask.title}*\n\n*Description:* ${subtask.description}\n*Assigned to:* ${subtask.assigned_to}\n*Deadline:* ${subtask.deadline}\n*Expected Output:* ${subtask.output}\n*Clarity Score:* ${subtask.clarity_score}%`;
         
-        await fetch("https://localhost:5000/api/send_message", {
+        await fetch("${API_BASE_URL}/api/send_message", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

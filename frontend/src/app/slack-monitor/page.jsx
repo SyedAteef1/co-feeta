@@ -1,4 +1,5 @@
 'use client';
+import { API_BASE_URL } from '@/config/api';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -77,7 +78,7 @@ export default function SlackMonitor() {
     if (!token) return;
 
     try {
-      const res = await fetch(`https://localhost:5000/slack/api/list_conversations`, {
+      const res = await fetch(`${API_BASE_URL}/slack/api/list_conversations`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -97,7 +98,7 @@ export default function SlackMonitor() {
     setLoadingSummary(true);
 
     try {
-      const historyRes = await fetch(`https://localhost:5000/slack/api/channel_history?channel=${channelId}&limit=50`, {
+      const historyRes = await fetch(`${API_BASE_URL}/slack/api/channel_history?channel=${channelId}&limit=50`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -123,7 +124,7 @@ export default function SlackMonitor() {
         return;
       }
 
-      const summaryRes = await fetch(`https://localhost:5000/slack/api/summarize_channel`, {
+      const summaryRes = await fetch(`${API_BASE_URL}/slack/api/summarize_channel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

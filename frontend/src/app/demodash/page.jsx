@@ -1,4 +1,5 @@
 'use client';
+import { API_BASE_URL } from '@/config/api';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -31,7 +32,7 @@ function TasksPage({ user }) {
     setSendingFollowup(taskId);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://localhost:5000/api/tasks/${taskId}/follow-up`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/follow-up`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -165,7 +166,7 @@ function TasksPage({ user }) {
     if (!token) return;
 
     try {
-      const response = await fetch('https://localhost:5000/api/projects', {
+      const response = await fetch('${API_BASE_URL}/api/projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -192,9 +193,9 @@ function TasksPage({ user }) {
     setIsLoading(true);
     
     try {
-      console.log('📡 Fetching tasks from API: https://localhost:5000/api/tasks');
+      console.log('📡 Fetching tasks from API: ${API_BASE_URL}/api/tasks');
       
-      const response = await fetch('https://localhost:5000/api/tasks', {
+      const response = await fetch('${API_BASE_URL}/api/tasks', {
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -697,7 +698,7 @@ function TeamsPage({ user }) {
     if (!token) return;
 
     try {
-      const response = await fetch('https://localhost:5000/api/teams/members', {
+      const response = await fetch('${API_BASE_URL}/api/teams/members', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -726,7 +727,7 @@ function TeamsPage({ user }) {
       const formData = new FormData();
       formData.append('resume', file);
 
-      const response = await fetch('https://localhost:5000/api/teams/analyze_resume', {
+      const response = await fetch('${API_BASE_URL}/api/teams/analyze_resume', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -763,7 +764,7 @@ function TeamsPage({ user }) {
       formData.append('email', email);
       formData.append('selected_roles', JSON.stringify(selectedRoles));
 
-      const response = await fetch('https://localhost:5000/api/teams/members', {
+      const response = await fetch('${API_BASE_URL}/api/teams/members', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -794,7 +795,7 @@ function TeamsPage({ user }) {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://localhost:5000/api/teams/members/${memberId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/teams/members/${memberId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -1200,7 +1201,7 @@ export default function DemoDash() {
       }
 
       // Load projects
-      const projectsRes = await fetch('https://localhost:5000/api/projects', {
+      const projectsRes = await fetch('${API_BASE_URL}/api/projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (projectsRes.ok) {
@@ -1214,7 +1215,7 @@ export default function DemoDash() {
         for (const project of userProjects.slice(0, 10)) {
           const projectId = project._id || project.id;
           try {
-            const tasksRes = await fetch(`https://localhost:5000/api/projects/${projectId}/tasks`, {
+            const tasksRes = await fetch(`${API_BASE_URL}/api/projects/${projectId}/tasks`, {
               headers: { 'Authorization': `Bearer ${token}` }
             });
             if (tasksRes.ok) {
@@ -1230,7 +1231,7 @@ export default function DemoDash() {
       }
 
       // Load team members
-      const membersRes = await fetch('https://localhost:5000/api/teams/members', {
+      const membersRes = await fetch('${API_BASE_URL}/api/teams/members', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (membersRes.ok) {
@@ -1241,7 +1242,7 @@ export default function DemoDash() {
 
       // Load all tasks across all projects to calculate stats
       const allTasks = [];
-      const projectsRes2 = await fetch('https://localhost:5000/api/projects', {
+      const projectsRes2 = await fetch('${API_BASE_URL}/api/projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (projectsRes2.ok) {
@@ -1251,7 +1252,7 @@ export default function DemoDash() {
         for (const project of userProjects2) {
           const projectId = project._id || project.id;
           try {
-            const tasksRes = await fetch(`https://localhost:5000/api/projects/${projectId}/tasks`, {
+            const tasksRes = await fetch(`${API_BASE_URL}/api/projects/${projectId}/tasks`, {
               headers: { 'Authorization': `Bearer ${token}` }
             });
             if (tasksRes.ok) {
@@ -1317,7 +1318,7 @@ export default function DemoDash() {
     }
     
     try {
-      const response = await fetch('https://localhost:5000/auth/me', {
+      const response = await fetch('${API_BASE_URL}/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -1344,7 +1345,7 @@ export default function DemoDash() {
   const checkGithubConnection = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('https://localhost:5000/github/api/check_connection', {
+      const response = await fetch('${API_BASE_URL}/github/api/check_connection', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -1361,7 +1362,7 @@ export default function DemoDash() {
   const fetchRepos = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('https://localhost:5000/github/api/repos', {
+      const response = await fetch('${API_BASE_URL}/github/api/repos', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -1379,13 +1380,13 @@ export default function DemoDash() {
       alert("Please login first");
       return;
     }
-    window.location.href = `https://localhost:5000/github/install?token=${token}`;
+    window.location.href = `${API_BASE_URL}/github/install?token=${token}`;
   };
 
   const checkSlackConnection = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('https://localhost:5000/slack/api/status', {
+      const response = await fetch('${API_BASE_URL}/slack/api/status', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -1402,13 +1403,13 @@ export default function DemoDash() {
       alert("Please login first");
       return;
     }
-    window.location.href = `https://localhost:5000/slack/install?token=${token}`;
+    window.location.href = `${API_BASE_URL}/slack/install?token=${token}`;
   };
 
   const checkJiraConnection = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('https://localhost:5000/api/jira/status', {
+      const response = await fetch('${API_BASE_URL}/api/jira/status', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -1424,7 +1425,7 @@ export default function DemoDash() {
     const token = localStorage.getItem('token');
     try {
       console.log('🔄 Connecting repositories:', selectedRepos);
-      const response = await fetch(`https://localhost:5000/api/projects/${selectedProject._id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/projects/${selectedProject._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1480,7 +1481,7 @@ export default function DemoDash() {
         if (!token) return;
         
         try {
-          const channelsRes = await fetch('https://localhost:5000/slack/api/list_conversations', {
+          const channelsRes = await fetch('${API_BASE_URL}/slack/api/list_conversations', {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           
@@ -1527,7 +1528,7 @@ export default function DemoDash() {
 
       try {
         // Get all channels
-        const channelsRes = await fetch('https://localhost:5000/slack/api/list_conversations', {
+        const channelsRes = await fetch('${API_BASE_URL}/slack/api/list_conversations', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -1552,7 +1553,7 @@ export default function DemoDash() {
 
         for (const channel of channels) {
           try {
-            const response = await fetch(`https://localhost:5000/slack/api/check-channel-mentions`, {
+            const response = await fetch(`${API_BASE_URL}/slack/api/check-channel-mentions`, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -1684,7 +1685,7 @@ export default function DemoDash() {
       let response;
       if (selectedProject) {
         // Use project-specific endpoint if project is selected
-        response = await fetch(`https://localhost:5000/api/projects/${selectedProject._id || selectedProject.id}/resolve-issue`, {
+        response = await fetch(`${API_BASE_URL}/api/projects/${selectedProject._id || selectedProject.id}/resolve-issue`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -1697,7 +1698,7 @@ export default function DemoDash() {
         });
       } else {
         // Use general endpoint if no project selected
-        response = await fetch(`https://localhost:5000/slack/api/resolve-issue`, {
+        response = await fetch(`${API_BASE_URL}/slack/api/resolve-issue`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -1751,7 +1752,7 @@ export default function DemoDash() {
         timestamp: new Date().toLocaleTimeString()
       }]);
 
-      const response = await fetch(`https://localhost:5000/slack/api/check-channel-mentions`, {
+      const response = await fetch(`${API_BASE_URL}/slack/api/check-channel-mentions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1765,7 +1766,7 @@ export default function DemoDash() {
         // Handle network errors
         let errorMsg = 'Network connection failed';
         if (fetchError.message.includes('Failed to fetch') || fetchError.message.includes('NetworkError')) {
-          errorMsg = 'Cannot connect to backend server. Please ensure:\n1. Backend server is running on https://localhost:5000\n2. No firewall is blocking the connection';
+          errorMsg = 'Cannot connect to backend server. Please ensure:\n1. Backend server is running on ${API_BASE_URL}\n2. No firewall is blocking the connection';
         } else {
           errorMsg = fetchError.message;
         }
@@ -1858,7 +1859,7 @@ export default function DemoDash() {
       console.log(`📋 Loading pending tasks for project: ${projectId}`);
       
       // Fetch pending tasks with suggestions
-      const tasksRes = await fetch(`https://localhost:5000/api/projects/${projectId}/tasks/pending-approval`, {
+      const tasksRes = await fetch(`${API_BASE_URL}/api/projects/${projectId}/tasks/pending-approval`, {
         method: 'GET',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -1875,7 +1876,7 @@ export default function DemoDash() {
         
         // Fetch Slack channels (optional - don't fail if this fails)
         try {
-          const channelsRes = await fetch('https://localhost:5000/slack/api/list_conversations', {
+          const channelsRes = await fetch('${API_BASE_URL}/slack/api/list_conversations', {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           
@@ -1937,7 +1938,7 @@ export default function DemoDash() {
     try {
       console.log(`✅ Approving ${taskIds.length} tasks...`);
       
-      const response = await fetch(`https://localhost:5000/api/projects/${selectedProject._id || selectedProject.id}/tasks/approve`, {
+      const response = await fetch(`${API_BASE_URL}/api/projects/${selectedProject._id || selectedProject.id}/tasks/approve`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -2002,7 +2003,7 @@ export default function DemoDash() {
     if (!token) return;
     
     try {
-      const response = await fetch('https://localhost:5000/api/projects', {
+      const response = await fetch('${API_BASE_URL}/api/projects', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -2022,7 +2023,7 @@ export default function DemoDash() {
     if (!token) return;
     
     try {
-      const response = await fetch('https://localhost:5000/api/projects', {
+      const response = await fetch('${API_BASE_URL}/api/projects', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -2109,7 +2110,7 @@ export default function DemoDash() {
     
     try {
       const projectId = project._id || project.id;
-      const response = await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
+      const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/messages`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -2161,7 +2162,7 @@ export default function DemoDash() {
       const projectId = selectedProject._id || selectedProject.id;
       
       try {
-        await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
+        await fetch(`${API_BASE_URL}/api/projects/${projectId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -2191,7 +2192,7 @@ export default function DemoDash() {
         repositories = [{ owner, repo: repoName, type: 'unknown' }];
       }
       
-      const res = await fetch("https://localhost:5000/api/analyze", {
+      const res = await fetch("${API_BASE_URL}/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2219,7 +2220,7 @@ export default function DemoDash() {
 
       if (data.status === "clear" || data.status === "needs_context") {
         const token = localStorage.getItem('token');
-        const planRes = await fetch("https://localhost:5000/api/generate_plan", {
+        const planRes = await fetch("${API_BASE_URL}/api/generate_plan", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
@@ -2241,7 +2242,7 @@ export default function DemoDash() {
           // Save tasks to database
           if (selectedProject && planData.subtasks) {
             try {
-              await fetch(`https://localhost:5000/api/projects/${projectId}/tasks`, {
+              await fetch(`${API_BASE_URL}/api/projects/${projectId}/tasks`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -2274,7 +2275,7 @@ export default function DemoDash() {
         const projectId = selectedProject._id || selectedProject.id;
         
         try {
-          await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
+          await fetch(`${API_BASE_URL}/api/projects/${projectId}/messages`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -2339,7 +2340,7 @@ export default function DemoDash() {
       };
 
       const token = localStorage.getItem('token');
-      const planRes = await fetch("https://localhost:5000/api/generate_plan", {
+      const planRes = await fetch("${API_BASE_URL}/api/generate_plan", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -2370,7 +2371,7 @@ export default function DemoDash() {
           
           try {
             // Save AI response message
-            await fetch(`https://localhost:5000/api/projects/${projectId}/messages`, {
+            await fetch(`${API_BASE_URL}/api/projects/${projectId}/messages`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -2385,7 +2386,7 @@ export default function DemoDash() {
 
             // Save tasks to database
             if (planData.subtasks) {
-              await fetch(`https://localhost:5000/api/projects/${projectId}/tasks`, {
+              await fetch(`${API_BASE_URL}/api/projects/${projectId}/tasks`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -4811,7 +4812,7 @@ export default function DemoDash() {
               const formData = new FormData(e.target);
               const token = localStorage.getItem('token');
               try {
-                const response = await fetch('https://localhost:5000/api/jira/connect', {
+                const response = await fetch('${API_BASE_URL}/api/jira/connect', {
                   method: 'POST',
                   headers: {
                     'Authorization': `Bearer ${token}`,
@@ -4895,7 +4896,7 @@ export default function DemoDash() {
         const loadJiraProjects = async () => {
           const token = localStorage.getItem('token');
           try {
-            const response = await fetch('https://localhost:5000/api/jira/projects', {
+            const response = await fetch('${API_BASE_URL}/api/jira/projects', {
               headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -4916,7 +4917,7 @@ export default function DemoDash() {
               const formData = new FormData(e.target);
               const token = localStorage.getItem('token');
               try {
-                const response = await fetch('https://localhost:5000/api/jira/create-issue', {
+                const response = await fetch('${API_BASE_URL}/api/jira/create-issue', {
                   method: 'POST',
                   headers: {
                     'Authorization': `Bearer ${token}`,

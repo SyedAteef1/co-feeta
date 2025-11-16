@@ -1,4 +1,5 @@
 'use client';
+import { API_BASE_URL } from '@/config/api';
 import { useState, useEffect } from 'react';
 
 export default function JiraIntegration({ onConnect, isConnected }) {
@@ -18,7 +19,7 @@ export default function JiraIntegration({ onConnect, isConnected }) {
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch('https://localhost:5000/api/jira/connect', {
+      const response = await fetch('${API_BASE_URL}/api/jira/connect', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -1,4 +1,5 @@
 'use client';
+import { API_BASE_URL } from '@/config/api';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -200,7 +201,7 @@ export default function TestingDash() {
     }
 
     try {
-      const response = await fetch('https://localhost:5000/auth/me', {
+      const response = await fetch('${API_BASE_URL}/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -227,7 +228,7 @@ export default function TestingDash() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://localhost:5000/api/projects', {
+      const response = await fetch('${API_BASE_URL}/api/projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

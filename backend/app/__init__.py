@@ -39,10 +39,10 @@ def create_app():
         logger.error(f"❌ Configuration Error: {e}")
         raise
     
-    # Setup CORS - Allow all origins for development
+    # Setup CORS
     CORS(app, 
          supports_credentials=True,
-         origins='*',
+         origins=[Config.FRONTEND_URL, 'https://www.feeta-ai.com', 'https://feeta-ai.com'],
          allow_headers=['Content-Type', 'Authorization'])
     
     logger.info(f"✅ CORS enabled for: {Config.FRONTEND_URL}")
