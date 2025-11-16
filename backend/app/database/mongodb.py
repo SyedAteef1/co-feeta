@@ -78,16 +78,19 @@ def init_db():
         conversation_history_collection = db['conversation_history']
         tasks_collection = db['tasks']
         
-        # Create indexes for performance (with error handling)
+        # Create indexes for BLAZING FAST dashboard queries
         try:
             users_collection.create_index([("email", ASCENDING)], unique=True)
-            projects_collection.create_index([("user_id", ASCENDING), ("created_at", DESCENDING)])
+            projects_collection.create_index([("user_id", ASCENDING), ("updated_at", DESCENDING)])
             messages_collection.create_index([("project_id", ASCENDING), ("created_at", ASCENDING)])
             repo_context_collection.create_index([("repo_full_name", ASCENDING)], unique=True)
             conversation_history_collection.create_index([("session_id", ASCENDING)], unique=True)
+            # Compound indexes for fast dashboard aggregations
+            tasks_collection.create_index([("user_id", ASCENDING), ("status", ASCENDING)])
+            tasks_collection.create_index([("user_id", ASCENDING), ("priority", ASCENDING)])
             tasks_collection.create_index([("project_id", ASCENDING), ("created_at", DESCENDING)])
-            tasks_collection.create_index([("status", ASCENDING)])
-            logger.info("✅ MongoDB collections initialized with indexes")
+            db['team_members'].create_index([("user_id", ASCENDING)])
+            logger.info("✅ MongoDB collections initialized with optimized indexes")
         except Exception as index_error:
             logger.warning(f"⚠️ Some indexes may already exist: {str(index_error)[:100]}")
         

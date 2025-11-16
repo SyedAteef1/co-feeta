@@ -66,8 +66,10 @@ def create_app():
     from app.api.gemini_test import gemini_test_bp
     from app.api.jira import jira_bp
     from app.api.demo import demo_bp
+    from app.api.dashboard import dashboard_bp
     
     app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(dashboard_bp, url_prefix='/api')
     app.register_blueprint(project_bp, url_prefix='/api')
     app.register_blueprint(task_bp, url_prefix='/api')
     app.register_blueprint(github_bp, url_prefix='/github')
