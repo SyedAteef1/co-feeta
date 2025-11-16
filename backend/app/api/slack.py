@@ -84,10 +84,23 @@ def slack_install():
         
         logger.info(f"Slack OAuth initiated for user: {user_id}")
         
-        # Generate state for CSRF protection
+        # Generate state for CSRF protection and store in database
         import secrets
-        state = secrets.token_hex(8)
+        state = secrets.token_hex(16)
+        
+        # Store state in database instead of session (more reliable in production)
+        from app.database.mongodb import db
+        oauth_states = db['oauth_states']
+        oauth_states.insert_one({
+            "state": state,
+            "user_id": user_id,
+            "created_at": datetime.utcnow(),
+            "type": "slack"
+        })
+        
+        # Also store in session as backup
         session['slack_state'] = state
+        session['pending_slack_user_id'] = user_id
         
         params = {
             "client_id": Config.SLACK_CLIENT_ID,
@@ -130,13 +143,24 @@ def slack_oauth_redirect():
         logger.error("❌ No authorization code received")
         return redirect(f"{Config.FRONTEND_URL}/slack?error=no_code")
     
-    # Verify state to prevent CSRF
-    if state != session.get('slack_state'):
-        logger.error("State mismatch - possible CSRF attack")
+    # Verify state to prevent CSRF (check database first, then session)
+    from app.database.mongodb import db
+    oauth_states = db['oauth_states']
+    state_doc = oauth_states.find_one({"state": state, "type": "slack"})
+    
+    if not state_doc and state != session.get('slack_state'):
+        logger.error(f"State mismatch - state: {state}, session: {session.get('slack_state')}")
         return redirect(f"{Config.FRONTEND_URL}/slack?error=invalid_state")
     
-    # Get the authenticated user_id from session
-    user_id = session.get('pending_slack_user_id')
+    # Get user_id from database if session doesn't have it
+    if state_doc:
+        user_id = state_doc.get('user_id')
+        # Clean up used state
+        oauth_states.delete_one({"_id": state_doc["_id"]})
+    else:
+        user_id = session.get('pending_slack_user_id')
+    
+    # user_id should already be set from state verification above
     if not user_id:
         logger.error("No user_id in session")
         return redirect(f"{Config.FRONTEND_URL}/slack?error=session_expired")
