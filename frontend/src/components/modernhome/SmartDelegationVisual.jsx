@@ -5,78 +5,26 @@ import { useState, useEffect, useRef } from 'react';
 export default function SmartDelegationVisual({ activeFeature }) {
   const [isVisible, setIsVisible] = useState(false);
   const [animationPhase, setAnimationPhase] = useState(0);
-  const [deptIndex, setDeptIndex] = useState(0);
   const containerRef = useRef(null);
 
-  // Department-specific data
-  const departments = [
-    {
-      dept: 'IT',
-      goal: 'Launch payment gateway by Friday',
-      teamMembers: [
-        { id: 1, name: 'Sarah C.', color: '#10B981', workload: 60, skills: ['Frontend', 'UI/UX'] },
-        { id: 2, name: 'David L.', color: '#F59E0B', workload: 85, skills: ['Backend', 'API'] },
-        { id: 3, name: 'Alex M.', color: '#3B82F6', workload: 40, skills: ['DevOps', 'Testing'] },
-        { id: 4, name: 'Emma R.', color: '#8B5CF6', workload: 70, skills: ['Design', 'Frontend'] }
-      ],
-      tasks: [
-        { id: 1, title: 'Design payment UI', assignee: 'Emma R.', status: 'done' },
-        { id: 2, title: 'Build API endpoints', assignee: 'David L.', status: 'progress' },
-        { id: 3, title: 'Setup deployment', assignee: 'Alex M.', status: 'todo' },
-        { id: 4, title: 'Frontend integration', assignee: 'Sarah C.', status: 'progress' }
-      ]
-    },
-    {
-      dept: 'Sales',
-      goal: 'Close 5 enterprise deals this quarter',
-      teamMembers: [
-        { id: 1, name: 'Mike T.', color: '#10B981', workload: 45, skills: ['Enterprise Sales', 'Negotiation'] },
-        { id: 2, name: 'Lisa K.', color: '#F59E0B', workload: 90, skills: ['Account Mgmt', 'Strategy'] },
-        { id: 3, name: 'John P.', color: '#3B82F6', workload: 55, skills: ['SDR', 'Prospecting'] },
-        { id: 4, name: 'Rachel S.', color: '#8B5CF6', workload: 65, skills: ['Sales Ops', 'CRM'] }
-      ],
-      tasks: [
-        { id: 1, title: 'Research Fortune 500', assignee: 'John P.', status: 'done' },
-        { id: 2, title: 'Draft proposals', assignee: 'Mike T.', status: 'progress' },
-        { id: 3, title: 'Update CRM', assignee: 'Rachel S.', status: 'todo' },
-        { id: 4, title: 'Schedule demos', assignee: 'Lisa K.', status: 'progress' }
-      ]
-    },
-    {
-      dept: 'Marketing',
-      goal: 'Launch Q4 product campaign',
-      teamMembers: [
-        { id: 1, name: 'Sofia M.', color: '#10B981', workload: 70, skills: ['Content', 'SEO'] },
-        { id: 2, name: 'James B.', color: '#F59E0B', workload: 80, skills: ['Design', 'Branding'] },
-        { id: 3, name: 'Nina W.', color: '#3B82F6', workload: 50, skills: ['Social Media', 'Ads'] },
-        { id: 4, name: 'Tom H.', color: '#8B5CF6', workload: 60, skills: ['Analytics', 'Growth'] }
-      ],
-      tasks: [
-        { id: 1, title: 'Draft messaging', assignee: 'Sofia M.', status: 'done' },
-        { id: 2, title: 'Design ad creatives', assignee: 'James B.', status: 'progress' },
-        { id: 3, title: 'Launch social ads', assignee: 'Nina W.', status: 'todo' },
-        { id: 4, title: 'Setup analytics', assignee: 'Tom H.', status: 'progress' }
-      ]
-    },
-    {
-      dept: 'Finance',
-      goal: 'Complete Q4 budget review by month end',
-      teamMembers: [
-        { id: 1, name: 'Robert F.', color: '#10B981', workload: 55, skills: ['FP&A', 'Forecasting'] },
-        { id: 2, name: 'Diana C.', color: '#F59E0B', workload: 88, skills: ['Controller', 'Compliance'] },
-        { id: 3, name: 'Mark L.', color: '#3B82F6', workload: 42, skills: ['Analyst', 'Reporting'] },
-        { id: 4, name: 'Julia D.', color: '#8B5CF6', workload: 68, skills: ['AP/AR', 'Payroll'] }
-      ],
-      tasks: [
-        { id: 1, title: 'Collect expense reports', assignee: 'Mark L.', status: 'done' },
-        { id: 2, title: 'Review vendor contracts', assignee: 'Julia D.', status: 'progress' },
-        { id: 3, title: 'Build financial model', assignee: 'Robert F.', status: 'todo' },
-        { id: 4, title: 'Compliance audit', assignee: 'Diana C.', status: 'progress' }
-      ]
-    }
-  ];
+  // Technical IT examples only
+  const currentDept = {
+    dept: 'Engineering',
+    goal: 'Build and deploy payment gateway integration',
+    teamMembers: [
+      { id: 1, name: 'Sarah C.', color: '#10B981', workload: 60, skills: ['React', 'TypeScript'] },
+      { id: 2, name: 'David L.', color: '#F59E0B', workload: 85, skills: ['Node.js', 'API'] },
+      { id: 3, name: 'Alex M.', color: '#3B82F6', workload: 40, skills: ['DevOps', 'AWS'] },
+      { id: 4, name: 'Emma R.', color: '#8B5CF6', workload: 70, skills: ['UI/UX', 'Figma'] }
+    ],
+    tasks: [
+      { id: 1, title: 'Design payment UI mockups', assignee: 'Emma R.', status: 'done' },
+      { id: 2, title: 'Build REST API endpoints', assignee: 'David L.', status: 'progress' },
+      { id: 3, title: 'Setup CI/CD pipeline', assignee: 'Alex M.', status: 'todo' },
+      { id: 4, title: 'Integrate Stripe SDK', assignee: 'Sarah C.', status: 'progress' }
+    ]
+  };
 
-  const currentDept = departments[deptIndex];
   const teamMembers = currentDept.teamMembers;
   const tasks = currentDept.tasks;
 
@@ -112,13 +60,7 @@ export default function SmartDelegationVisual({ activeFeature }) {
     }
   }, [activeFeature]);
 
-  // Department cycling
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setDeptIndex((prev) => (prev + 1) % departments.length);
-    }, 9000); // Change department every 9 seconds
-    return () => clearInterval(interval);
-  }, []);
+
 
   const getWorkloadColor = (workload) => {
     if (workload < 50) return '#10B981';
@@ -146,22 +88,17 @@ export default function SmartDelegationVisual({ activeFeature }) {
           <div className="p-5">
             {/* Department Badge */}
             <div className="mb-3 flex items-center gap-2">
-              <div className={`px-3 py-1 rounded-full text-xs font-semibold transition-all duration-500 ${
-                currentDept.dept === 'IT' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40' :
-                currentDept.dept === 'Sales' ? 'bg-green-500/20 text-green-400 border border-green-500/40' :
-                currentDept.dept === 'Marketing' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40' :
-                'bg-yellow-500/20 text-yellow-400 border border-yellow-500/40'
-              }`}>
+              <div className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/40">
                 {currentDept.dept}
               </div>
               <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
               </svg>
-              <span className="text-xs text-gray-500">Team delegation</span>
+              <span className="text-xs text-gray-500">Technical delegation</span>
             </div>
             
             {/* Goal Input with enhanced styling */}
-            <div key={deptIndex} className={`relative bg-gray-800/60 rounded-2xl p-3 border border-gray-700/50 mb-4 transition-all duration-700 shadow-lg shadow-[#4C3BCF]/5 animate-fadeIn ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+            <div className={`relative bg-gray-800/60 rounded-2xl p-3 border border-gray-700/50 mb-4 transition-all duration-700 shadow-lg shadow-[#4C3BCF]/5 animate-fadeIn ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
               <div className="absolute -top-2 -right-2">
                 <div className="bg-[#4C3BCF] text-white text-xs px-2 py-0.5 rounded-full shadow-lg animate-pulse">
                   Project

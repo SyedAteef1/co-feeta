@@ -9,3 +9,4 @@ pyOpenSSL==23.3.0
 PyPDF2==3.0.1
 python-docx==1.1.0
 google-cloud-aiplatform
+gunicorn==21.2.0
