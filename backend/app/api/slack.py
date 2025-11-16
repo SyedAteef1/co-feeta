@@ -93,7 +93,7 @@ def slack_install():
             "scope": (
                 "app_mentions:read,bookmarks:read,assistant:write,canvases:read,"
                 "canvases:write,channels:read,channels:join,groups:read,"
-                "channels:history,groups:history,im:history,im:read,mpim:history,"
+                "channels:history,groups:history,im:history,im:read,im:write,mpim:history,"
                 "chat:write,users:read,team:read"
             ),
             "redirect_uri": f"{Config.BACKEND_URL}/slack/oauth_redirect",
@@ -749,177 +749,83 @@ def send_message_to_channel(slack_token, channel_id, message, thread_ts=None):
 
 
 def handle_mention_with_context(user_id, slack_token, channel, slack_user_id, question, user_name, thread_ts=None):
-    """Handle mention by analyzing user's tasks, repos, and providing solution"""
+    """Handle mention by responding directly to the question"""
     try:
+        # Check if already processed
+        from app.database.mongodb import db
+        processed_mentions = db['processed_mentions']
+        mention_id = f"{channel}_{thread_ts}"
+        
+        if processed_mentions.find_one({"mention_id": mention_id}):
+            logger.info(f"⏭️ Skipping already processed mention: {mention_id}")
+            return True
+        
         logger.info("="*60)
         logger.info("🚀 FEETA MENTION PROCESSING STARTED")
         logger.info("="*60)
         logger.info(f"👤 User: {user_name} (ID: {user_id})")
         logger.info(f"❓ Question: {question}")
         logger.info(f"📢 Channel ID: {channel} (will send reply here)")
-        logger.info(f"🔍 Analyzing context for user: {user_id}")
         
-        # Get user's projects
-        from app.database.mongodb import db, get_user_projects, get_project_tasks
-        from app.services.ai_service import create_deep_project_context
-        from bson import ObjectId
-        
-        users_collection = db['users']
-        user = users_collection.find_one({"_id": ObjectId(user_id)})
-        
-        if not user:
-            logger.error("❌ User not found in database")
-            return False
-        
-        github_token = user.get('github_token')
-        if not github_token:
-            logger.warning("⚠️ No GitHub token found for user")
-            send_dm_to_user(slack_token, slack_user_id,
-                f"Hi {user_name}! 👋\n\nI need GitHub to be connected to analyze your repositories. Please connect GitHub in your dashboard first.")
-            return False
-        
-        # Get all projects for user
-        projects = get_user_projects(user_id)
-        
-        if not projects:
-            logger.warning("⚠️ No projects found for user")
-            send_dm_to_user(slack_token, slack_user_id,
-                f"Hi {user_name}! 👋\n\nYou don't have any projects yet. Create a project in your dashboard and connect repositories to get started!")
-            return False
-        
-        # Build comprehensive context
-        project_context = ""
-        tasks_context = ""
-        
-        # Analyze repos from all projects
-        all_repos = []
-        for project in projects[:3]:  # Limit to 3 projects
-            repos = project.get('repos', [])
-            for repo in repos[:2]:  # Limit to 2 repos per project
-                if repo not in all_repos:
-                    all_repos.append(repo)
-        
-        logger.info(f"📦 Analyzing {len(all_repos)} repositories for context...")
-        for repo in all_repos:
-            try:
-                full_name = repo.get('full_name') or repo.get('name', '')
-                if '/' in full_name:
-                    owner, repo_name = full_name.split('/', 1)
-                    logger.info(f"🔍 Analyzing repository {owner}/{repo_name} to include in LLM context...")
-                    context = create_deep_project_context(owner, repo_name, github_token)
-                    project_context += f"\n\n=== Repository: {full_name} ===\n{context}\n"
-                    logger.info(f"✅ Repository context added for {full_name}")
-            except Exception as e:
-                logger.error(f"❌ Error analyzing repo {repo.get('name')}: {str(e)}")
-                continue
-        
-        # Get tasks from all projects
-        all_tasks = []
-        for project in projects:
-            project_id = str(project.get('_id', ''))
-            tasks = get_project_tasks(project_id)
-            all_tasks.extend(tasks[:5])  # Limit to 5 tasks per project
-        
-        if all_tasks:
-            tasks_context = "\n\n=== Your Active Tasks ===\n"
-            for task in all_tasks[:15]:  # Limit to 15 tasks total
-                status = task.get('status', 'unknown')
-                if status in ['in_progress', 'approved', 'pending_approval', 'pending']:
-                    tasks_context += f"- {task.get('title', 'Untitled')}: {task.get('description', '')[:100]}\n"
-                    if task.get('assigned_to') and task.get('assigned_to') != 'Unassigned':
-                        tasks_context += f"  (Assigned to: {task.get('assigned_to')})\n"
-        
-        # Build AI prompt
-        full_context = f"""USER CONTEXT:
-{project_context}
-
-{tasks_context}
-
-USER QUESTION FROM SLACK:
+        # Build AI prompt - just answer the question directly
+        full_context = f"""USER QUESTION FROM SLACK:
 {question}
 
-You are Feeta AI, an expert developer assistant. The user has tagged you in Slack with a question about their project.
+You are Feeta AI, an expert developer assistant. The user has tagged you in Slack with a question.
 
 **IMPORTANT INSTRUCTIONS:**
-1. Analyze the user's question in the context of their repositories and active tasks above
-2. **ALWAYS reference specific files, modules, or code sections from their repositories** when providing solutions
-3. Use the repository context (project summary, tech stack, architecture, key modules) to provide accurate, project-specific answers
-4. Consider their current tasks and workload when suggesting solutions
-5. Provide clear, step-by-step guidance with actionable steps
-6. Include code examples that match their tech stack and repository structure
-7. If the question relates to a specific file or module mentioned in the repository context, reference it directly
+1. Answer the question directly and clearly
+2. Provide practical, actionable guidance
+3. Include code examples if relevant
+4. Be concise but thorough
+5. Use a friendly, helpful tone suitable for Slack
 
 **Response Format:**
 - Start with a brief acknowledgment
-- Provide a clear analysis of the problem
-- Give step-by-step solution with specific file/module references
-- Include code examples if relevant (matching their tech stack)
+- Provide a clear analysis or explanation
+- Give step-by-step solution if applicable
+- Include code examples if relevant
 - End with any additional tips or considerations
 
-Format your response in a friendly, helpful tone suitable for Slack. Be concise but thorough. Reference actual repository files and code when possible."""
+Format your response in a friendly, helpful tone suitable for Slack."""
         
-        # Call AI service
+        # Call AI service using Vertex AI (same as task generation)
         logger.info("="*60)
-        logger.info("🤖 SENDING TO LLM WITH FULL CONTEXT")
+        logger.info("🤖 SENDING TO LLM")
         logger.info("="*60)
         logger.info(f"📝 Question: {question}")
-        logger.info(f"📚 Repository context: {len(project_context)} characters")
-        logger.info(f"📋 Tasks context: {len(tasks_context)} characters")
-        logger.info(f"📊 Total context size: {len(full_context)} characters")
-        logger.info("🔄 Calling Gemini LLM API...")
-        import os
-        api_key = os.getenv('GEMINI_API_KEY')
-        if not api_key:
-            logger.error("❌ GEMINI_API_KEY not configured")
-            send_dm_to_user(slack_token, slack_user_id, "Sorry, AI service is not configured.")
-            return False
+        logger.info(f"📊 Context size: {len(full_context)} characters")
+        logger.info("🔄 Calling Vertex AI Gemini...")
         
-        api_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent'
-        headers = {'Content-Type': 'application/json'}
-        payload = {
-            "contents": [{
-                "parts": [{"text": full_context}]
-            }]
-        }
-        params = {'key': api_key}
-        
-        logger.info("🌐 Making HTTP POST request to Gemini LLM API...")
-        response = requests.post(api_url, headers=headers, json=payload, params=params, timeout=60)
-        logger.info(f"📥 LLM API Response Status: {response.status_code}")
-        
-        if response.status_code != 200:
-            logger.error(f"❌ AI API error: {response.status_code}")
-            logger.error(f"❌ Response: {response.text}")
-            send_dm_to_user(slack_token, slack_user_id, "Sorry, I encountered an error analyzing your question. Please try again.")
-            return False
-        
-        ai_response = response.json()
-        solution = ""
-        
-        if 'candidates' in ai_response and len(ai_response['candidates']) > 0:
-            solution = ai_response['candidates'][0]['content']['parts'][0]['text']
+        try:
+            from vertexai.generative_models import GenerativeModel
+            model = GenerativeModel('gemini-2.0-flash-exp')
+            response = model.generate_content(
+                full_context,
+                generation_config={'temperature': 0.7, 'max_output_tokens': 2048}
+            )
+            
+            solution = response.text
             logger.info("✅ LLM response received successfully")
             logger.info(f"📄 Solution length: {len(solution)} characters")
             logger.info("="*60)
             logger.info("✅✅✅ LLM PROCESSING COMPLETE - NOW SENDING TO SLACK ✅✅✅")
             logger.info("="*60)
-        else:
-            logger.error("❌ No response from LLM")
-            logger.error(f"❌ LLM Response: {ai_response}")
-            send_dm_to_user(slack_token, slack_user_id, "Sorry, I couldn't generate a response. Please try rephrasing your question.")
+        except Exception as e:
+            logger.error(f"❌ AI API error: {str(e)}")
             return False
         
-        # Format and send message in channel
+        # Format and send message in channel only (no DM)
         message = f"""Hi <@{slack_user_id}>! 👋
 
 You asked: *{question}*
 
-Here's my analysis based on your projects and tasks:
+Here's my response:
 
 {solution}
 
 ---
-_Generated by Feeta AI based on your repositories and active tasks_"""
+_Generated by Feeta AI_"""
         
         logger.info(f"📝 Formatted message length: {len(message)} characters")
         logger.info(f"📝 Message preview: {message[:300]}...")
@@ -935,7 +841,16 @@ _Generated by Feeta AI based on your repositories and active tasks_"""
         else:
             logger.info(f"💬 Sending message to Slack channel {channel}")
         result = send_message_to_channel(slack_token, channel, message, thread_ts)
+        
         if result:
+            # Mark as processed
+            processed_mentions.insert_one({
+                "mention_id": mention_id,
+                "channel": channel,
+                "user_id": slack_user_id,
+                "question": question,
+                "processed_at": datetime.utcnow()
+            })
             logger.info("✅✅✅ SOLUTION SENT TO SLACK SUCCESSFULLY ✅✅✅")
             logger.info("="*60)
         else:
@@ -945,10 +860,6 @@ _Generated by Feeta AI based on your repositories and active tasks_"""
         
     except Exception as e:
         logger.error(f"❌ Error handling mention: {str(e)}")
-        try:
-            send_dm_to_user(slack_token, slack_user_id, "Sorry, I encountered an error. Please try again later.")
-        except:
-            pass
         return False
 
 
@@ -1494,161 +1405,82 @@ def check_channel_mentions():
 
 
 def handle_mention_with_project_context(user_id, slack_token, channel, slack_user_id, question, user_name, project_id, thread_ts=None):
-    """Handle mention with specific project context"""
+    """Handle mention by responding directly to the question"""
     try:
+        from app.database.mongodb import db
+        processed_mentions = db['processed_mentions']
+        mention_id = f"{channel}_{thread_ts}"
+        
+        if processed_mentions.find_one({"mention_id": mention_id}):
+            logger.info(f"⏭️ Skipping already processed mention: {mention_id}")
+            return True
+        
         logger.info("="*60)
-        logger.info("🚀 FEETA MENTION PROCESSING STARTED (WITH PROJECT)")
+        logger.info("🚀 FEETA MENTION PROCESSING STARTED")
         logger.info("="*60)
         logger.info(f"👤 User: {user_name} (ID: {user_id})")
         logger.info(f"❓ Question: {question}")
         logger.info(f"📢 Channel ID: {channel} (will send reply here)")
-        logger.info(f"📁 Project ID: {project_id}")
-        logger.info(f"🔍 Analyzing context for user: {user_id} with project: {project_id}")
         
-        from app.database.mongodb import db, get_project_tasks
-        from app.services.ai_service import create_deep_project_context
-        from bson import ObjectId
-        
-        users_collection = db['users']
-        user = users_collection.find_one({"_id": ObjectId(user_id)})
-        
-        if not user:
-            logger.error("User not found")
-            return False
-        
-        github_token = user.get('github_token')
-        if not github_token:
-            send_dm_to_user(slack_token, slack_user_id,
-                f"Hi {user_name}! 👋\n\nI need GitHub to be connected to analyze your repositories. Please connect GitHub in your dashboard first.")
-            return False
-        
-        # Get project
-        projects_collection = db['projects']
-        project = projects_collection.find_one({"_id": ObjectId(project_id), "user_id": user_id})
-        
-        if not project:
-            logger.error("Project not found")
-            send_dm_to_user(slack_token, slack_user_id,
-                f"Hi {user_name}! 👋\n\nProject not found. Please select a valid project.")
-            return False
-        
-        # Build context from project repos
-        project_context = ""
-        repos = project.get('repos', [])
-        
-        logger.info(f"📦 Analyzing {len(repos)} repositories from project to include in LLM context...")
-        for repo in repos[:3]:  # Limit to 3 repos
-            try:
-                full_name = repo.get('full_name') or repo.get('name', '')
-                if '/' in full_name:
-                    owner, repo_name = full_name.split('/', 1)
-                    logger.info(f"🔍 Analyzing repository {owner}/{repo_name} to include in LLM context...")
-                    context = create_deep_project_context(owner, repo_name, github_token)
-                    project_context += f"\n\n=== Repository: {full_name} ===\n{context}\n"
-                    logger.info(f"✅ Repository context added for {full_name}")
-            except Exception as e:
-                logger.error(f"❌ Error analyzing repo {repo.get('name')}: {str(e)}")
-                continue
-        
-        # Get tasks from project
-        tasks = get_project_tasks(project_id)
-        tasks_context = ""
-        if tasks:
-            tasks_context = "\n\n=== Project Tasks ===\n"
-            for task in tasks[:15]:
-                status = task.get('status', 'unknown')
-                if status in ['in_progress', 'approved', 'pending_approval', 'pending']:
-                    tasks_context += f"- {task.get('title', 'Untitled')}: {task.get('description', '')[:100]}\n"
-                    if task.get('assigned_to') and task.get('assigned_to') != 'Unassigned':
-                        tasks_context += f"  (Assigned to: {task.get('assigned_to')})\n"
-        
-        # Build AI prompt
-        full_context = f"""PROJECT CONTEXT:
-Project: {project.get('name', 'Unknown')}
-
-{project_context}
-
-{tasks_context}
-
-USER QUESTION FROM SLACK:
+        # Build AI prompt - just answer the question directly
+        full_context = f"""USER QUESTION FROM SLACK:
 {question}
 
-You are Feeta AI, an expert developer assistant. The user has tagged you in Slack with a question about their project "{project.get('name', 'Unknown')}".
+You are Feeta AI, an expert developer assistant. The user has tagged you in Slack with a question.
 
 **IMPORTANT INSTRUCTIONS:**
-1. Analyze the user's question in the context of their project repositories and tasks above
-2. **ALWAYS reference specific files, modules, or code sections from their repositories** when providing solutions
-3. Use the repository context (project summary, tech stack, architecture, key modules) to provide accurate, project-specific answers
-4. Consider their current tasks and workload when suggesting solutions
-5. Provide clear, step-by-step guidance with actionable steps
-6. Include code examples that match their tech stack and repository structure
-7. If the question relates to a specific file or module mentioned in the repository context, reference it directly (e.g., "In your {module_name} module, check the {file_path} file")
+1. Answer the question directly and clearly
+2. Provide practical, actionable guidance
+3. Include code examples if relevant
+4. Be concise but thorough
+5. Use a friendly, helpful tone suitable for Slack
 
 **Response Format:**
 - Start with a brief acknowledgment
-- Provide a clear analysis of the problem
-- Give step-by-step solution with specific file/module references from the repository context
-- Include code examples if relevant (matching their tech stack)
+- Provide a clear analysis or explanation
+- Give step-by-step solution if applicable
+- Include code examples if relevant
 - End with any additional tips or considerations
 
-Format your response in a friendly, helpful tone suitable for Slack. Be concise but thorough. Reference actual repository files and code when possible."""
+Format your response in a friendly, helpful tone suitable for Slack."""
         
-        # Call AI service
+        # Call AI service using Vertex AI (same as task generation)
         logger.info("="*60)
-        logger.info("🤖 SENDING TO LLM WITH FULL CONTEXT")
+        logger.info("🤖 SENDING TO LLM")
         logger.info("="*60)
         logger.info(f"📝 Question: {question}")
-        logger.info(f"📚 Repository context: {len(project_context)} characters")
-        logger.info(f"📋 Tasks context: {len(tasks_context)} characters")
-        logger.info(f"📊 Total context size: {len(full_context)} characters")
-        logger.info("🔄 Calling Gemini LLM API...")
-        api_key = os.getenv('GEMINI_API_KEY')
-        if not api_key:
-            send_dm_to_user(slack_token, slack_user_id, "Sorry, AI service is not configured.")
-            return False
+        logger.info(f"📊 Context size: {len(full_context)} characters")
+        logger.info("🔄 Calling Vertex AI Gemini...")
         
-        api_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent'
-        headers = {'Content-Type': 'application/json'}
-        payload = {
-            "contents": [{
-                "parts": [{"text": full_context}]
-            }]
-        }
-        params = {'key': api_key}
-        
-        response = requests.post(api_url, headers=headers, json=payload, params=params, timeout=60)
-        
-        if response.status_code != 200:
-            logger.error(f"❌ AI API error: {response.status_code}")
-            send_dm_to_user(slack_token, slack_user_id, "Sorry, I encountered an error analyzing your question. Please try again.")
-            return False
-        
-        ai_response = response.json()
-        solution = ""
-        
-        if 'candidates' in ai_response and len(ai_response['candidates']) > 0:
-            solution = ai_response['candidates'][0]['content']['parts'][0]['text']
+        try:
+            from vertexai.generative_models import GenerativeModel
+            model = GenerativeModel('gemini-2.0-flash-exp')
+            response = model.generate_content(
+                full_context,
+                generation_config={'temperature': 0.7, 'max_output_tokens': 2048}
+            )
+            
+            solution = response.text
             logger.info("✅ LLM response received successfully")
             logger.info(f"📄 Solution length: {len(solution)} characters")
             logger.info("="*60)
             logger.info("✅✅✅ LLM PROCESSING COMPLETE - NOW SENDING TO SLACK ✅✅✅")
             logger.info("="*60)
-        else:
-            logger.error("❌ No response from LLM")
-            send_dm_to_user(slack_token, slack_user_id, "Sorry, I couldn't generate a response. Please try rephrasing your question.")
+        except Exception as e:
+            logger.error(f"❌ AI API error: {str(e)}")
             return False
         
-        # Format and send message in channel (as a reply/thread)
+        # Format and send message in channel only (no DM)
         message = f"""Hi <@{slack_user_id}>! 👋
 
 You asked: *{question}*
 
-Here's my analysis based on your project *{project.get('name', 'Unknown')}*:
+Here's my response:
 
 {solution}
 
 ---
-_Generated by Feeta AI based on your project repositories and tasks_"""
+_Generated by Feeta AI_"""
         
         logger.info(f"📝 Formatted message length: {len(message)} characters")
         logger.info(f"📝 Message preview: {message[:300]}...")
@@ -1664,7 +1496,16 @@ _Generated by Feeta AI based on your project repositories and tasks_"""
         else:
             logger.info(f"💬 Sending message to Slack channel {channel}")
         result = send_message_to_channel(slack_token, channel, message, thread_ts)
+        
         if result:
+            processed_mentions.insert_one({
+                "mention_id": mention_id,
+                "channel": channel,
+                "user_id": slack_user_id,
+                "project_id": project_id,
+                "question": question,
+                "processed_at": datetime.utcnow()
+            })
             logger.info("✅✅✅ SOLUTION SENT TO SLACK SUCCESSFULLY ✅✅✅")
             logger.info("="*60)
         else:
@@ -1674,10 +1515,6 @@ _Generated by Feeta AI based on your project repositories and tasks_"""
         
     except Exception as e:
         logger.error(f"❌ Error handling mention with project context: {str(e)}")
-        try:
-            send_dm_to_user(slack_token, slack_user_id, "Sorry, I encountered an error. Please try again later.")
-        except:
-            pass
         return False
 
 
