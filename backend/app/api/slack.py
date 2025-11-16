@@ -12,6 +12,7 @@ from datetime import datetime
 from app.config import Config
 import jwt
 import os
+from app.utils.slack_safety import check_rate_limit, check_question_length, get_safe_llm_config
 
 logger = logging.getLogger(__name__)
 slack_bp = Blueprint('slack', __name__)
@@ -760,6 +761,13 @@ def handle_mention_with_context(user_id, slack_token, channel, slack_user_id, qu
             logger.info(f"⏭️ Skipping already processed mention: {mention_id}")
             return True
         
+
+        # SAFETY CHECKS
+        if check_rate_limit(processed_mentions, slack_user_id, user_name):
+            return True
+        if check_question_length(question):
+            return True
+        
         logger.info("="*60)
         logger.info("🚀 FEETA MENTION PROCESSING STARTED")
         logger.info("="*60)
@@ -1413,6 +1421,12 @@ def handle_mention_with_project_context(user_id, slack_token, channel, slack_use
         
         if processed_mentions.find_one({"mention_id": mention_id}):
             logger.info(f"⏭️ Skipping already processed mention: {mention_id}")
+            return True
+        
+        # SAFETY CHECKS
+        if check_rate_limit(processed_mentions, slack_user_id, user_name):
+            return True
+        if check_question_length(question):
             return True
         
         logger.info("="*60)

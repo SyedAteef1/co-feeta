@@ -65,6 +65,7 @@ def create_app():
     from app.api.followup import followup_bp
     from app.api.gemini_test import gemini_test_bp
     from app.api.jira import jira_bp
+    from app.api.demo import demo_bp
     
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(project_bp, url_prefix='/api')
@@ -75,8 +76,14 @@ def create_app():
     app.register_blueprint(followup_bp, url_prefix='/api/followup')
     app.register_blueprint(gemini_test_bp, url_prefix='/api')
     app.register_blueprint(jira_bp, url_prefix='/api/jira')
+    app.register_blueprint(demo_bp, url_prefix='/api/demo')
     
     logger.info("✅ API routes registered")
+    
+    # Start automatic task follow-up scheduler
+    from app.scheduler.task_followup import start_followup_scheduler
+    start_followup_scheduler()
+    logger.info("✅ Task follow-up scheduler started (every 10 minutes)")
     
     # Simple request logging
     @app.before_request

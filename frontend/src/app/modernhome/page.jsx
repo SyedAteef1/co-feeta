@@ -516,15 +516,17 @@
             <a href="#" className="hover:text-[#4C3BCF] transition-colors focus:outline-none">About</a>
             <a href="#" className="hover:text-[#4C3BCF] transition-colors focus:outline-none">Blog</a>
             <a href="#" className="hover:text-[#4C3BCF] transition-colors focus:outline-none">Contact</a>
-            <button 
-              onClick={() => router.push('/login')} 
-              className="bg-transparent border border-gray-700 hover:border-[#4C3BCF] px-6 py-2 rounded-lg transition-colors focus:outline-none hover:text-[#4C3BCF]"
-            >
-              Login
-            </button>
-            <button onClick={navigateToDemo} className="bg-[#4C3BCF] hover:bg-[#4C3BCF]/80 px-6 py-2 rounded-lg transition-colors focus:outline-none">
-              Book a call
-            </button>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => router.push('/login')} 
+                className="bg-transparent border border-gray-700 hover:border-[#4C3BCF] px-6 py-2 rounded-lg transition-colors focus:outline-none hover:text-[#4C3BCF]"
+              >
+                Login
+              </button>
+              <button onClick={navigateToDemo} className="bg-[#4C3BCF] hover:bg-[#4C3BCF]/80 px-6 py-2 rounded-lg transition-colors focus:outline-none">
+                Book a call
+              </button>
+            </div>
           </div>
         </nav>
 
@@ -558,7 +560,7 @@
               onClick={navigateToDemo}
               className="bg-[#4C3BCF] hover:bg-[#4C3BCF]/80 px-5 py-2 rounded-lg font-medium flex items-center gap-2 transition-all duration-300 text-sm floating-element hover:scale-105 hover:shadow-lg hover:shadow-[#4C3BCF]/30"
             >
-              Get in touch
+              Book a demo
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 17L17 7M17 7H7M17 7v10" />
               </svg>
