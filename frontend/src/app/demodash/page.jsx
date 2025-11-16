@@ -1298,11 +1298,14 @@ export default function DemoDash() {
         console.log('📊 All Tasks:', allTasks.length, allTasks);
         setTeamPerformanceData(performanceData);
 
-        // NOTE: Keeping dummy data for Recent Activities and Pending Tasks
-        // Only Team Performance section uses live data from API
+        // Set loading states to false after data is loaded
+        setIsLoadingActivities(false);
+        setIsLoadingPendingTasks(false);
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      setIsLoadingActivities(false);
+      setIsLoadingPendingTasks(false);
     }
   };
 
@@ -2578,157 +2581,10 @@ export default function DemoDash() {
     tasksCompleted: 24,
     members: 8
   });
-  const [dashboardActivities, setDashboardActivities] = useState([
-    { time: '15m ago', user: 'Syed Ateef Quadri', action: 'completed user authentication module' },
-    { time: '45m ago', user: 'Md Suhail', action: 'finished API integration testing' },
-    { time: '1h ago', user: 'Syed Ateef Quadri', action: 'deployed new feature to staging' },
-    { time: '2h ago', user: 'Md Suhail', action: 'merged pull request #142' },
-    { time: '3h ago', user: 'Syed Ateef Quadri', action: 'optimized database queries' },
-    { time: '4h ago', user: 'Md Suhail', action: 'fixed critical security vulnerability' },
-    { time: '5h ago', user: 'Syed Ateef Quadri', action: 'implemented real-time notifications' },
-    { time: '6h ago', user: 'Md Suhail', action: 'updated user interface components' },
-    { time: '1d ago', user: 'Syed Ateef Quadri', action: 'completed backend API refactoring' },
-    { time: '1d ago', user: 'Md Suhail', action: 'added new dashboard analytics features' },
-    { time: '2d ago', user: 'Syed Ateef Quadri', action: 'resolved performance bottlenecks' },
-    { time: '2d ago', user: 'Md Suhail', action: 'integrated third-party payment gateway' }
-  ]);
-  const [pendingTasksForDisplay, setPendingTasksForDisplay] = useState([
-    {
-      id: 'demo-1',
-      time: '20m ago',
-      user: 'Syed Ateef Quadri',
-      action: 'Implement user dashboard analytics',
-      description: 'Add real-time analytics charts and data visualization components to the user dashboard with interactive graphs',
-      status: 'pending_approval',
-      priority: 'high'
-    },
-    {
-      id: 'demo-2',
-      time: '45m ago',
-      user: 'Md Suhail',
-      action: 'Fix authentication bug in login flow',
-      description: 'Resolve issue with token expiration handling in the authentication middleware and improve session management',
-      status: 'pending',
-      priority: 'urgent'
-    },
-    {
-      id: 'demo-3',
-      time: '1h ago',
-      user: 'Syed Ateef Quadri',
-      action: 'Update API documentation',
-      description: 'Document new endpoints and update existing API reference documentation with code examples',
-      status: 'pending',
-      priority: 'medium'
-    },
-    {
-      id: 'demo-4',
-      time: '2h ago',
-      user: 'Md Suhail',
-      action: 'Optimize database queries',
-      description: 'Review and optimize slow database queries for better performance and add proper indexing',
-      status: 'pending_approval',
-      priority: 'high'
-    },
-    {
-      id: 'demo-5',
-      time: '3h ago',
-      user: 'Syed Ateef Quadri',
-      action: 'Design new notification system',
-      description: 'Create a comprehensive notification system with real-time updates and user preferences',
-      status: 'pending',
-      priority: 'medium'
-    },
-    {
-      id: 'demo-6',
-      time: '4h ago',
-      user: 'Md Suhail',
-      action: 'Implement file upload feature',
-      description: 'Add secure file upload functionality with progress tracking and validation',
-      status: 'pending',
-      priority: 'high'
-    },
-    {
-      id: 'demo-7',
-      time: '5h ago',
-      user: 'Syed Ateef Quadri',
-      action: 'Refactor user profile component',
-      description: 'Improve user profile component with better UI/UX and add profile picture upload',
-      status: 'pending_approval',
-      priority: 'medium'
-    },
-    {
-      id: 'demo-8',
-      time: '6h ago',
-      user: 'Md Suhail',
-      action: 'Add email notification service',
-      description: 'Integrate email service for sending notifications and alerts to users',
-      status: 'pending',
-      priority: 'high'
-    },
-    {
-      id: 'demo-9',
-      time: '7h ago',
-      user: 'Syed Ateef Quadri',
-      action: 'Create user onboarding flow',
-      description: 'Build an interactive onboarding experience for new users with step-by-step tutorials',
-      status: 'pending',
-      priority: 'medium'
-    },
-    {
-      id: 'demo-10',
-      time: '8h ago',
-      user: 'Md Suhail',
-      action: 'Implement search functionality',
-      description: 'Add advanced search with filters, sorting, and autocomplete for better user experience',
-      status: 'pending_approval',
-      priority: 'high'
-    },
-    {
-      id: 'demo-11',
-      time: '1d ago',
-      user: 'Syed Ateef Quadri',
-      action: 'Set up CI/CD pipeline',
-      description: 'Configure continuous integration and deployment pipeline for automated testing and releases',
-      status: 'pending',
-      priority: 'urgent'
-    },
-    {
-      id: 'demo-12',
-      time: '1d ago',
-      user: 'Md Suhail',
-      action: 'Add dark mode support',
-      description: 'Implement dark mode theme with user preference toggle and system detection',
-      status: 'pending',
-      priority: 'medium'
-    },
-    {
-      id: 'demo-13',
-      time: '2d ago',
-      user: 'Syed Ateef Quadri',
-      action: 'Build mobile responsive layout',
-      description: 'Ensure all components are fully responsive and optimized for mobile devices',
-      status: 'pending_approval',
-      priority: 'high'
-    },
-    {
-      id: 'demo-14',
-      time: '2d ago',
-      user: 'Md Suhail',
-      action: 'Integrate payment gateway',
-      description: 'Add secure payment processing with multiple payment methods and subscription management',
-      status: 'pending',
-      priority: 'high'
-    },
-    {
-      id: 'demo-15',
-      time: '3d ago',
-      user: 'Syed Ateef Quadri',
-      action: 'Create admin dashboard',
-      description: 'Build comprehensive admin panel with user management, analytics, and system controls',
-      status: 'pending',
-      priority: 'medium'
-    }
-  ]);
+  const [dashboardActivities, setDashboardActivities] = useState([]);
+  const [isLoadingActivities, setIsLoadingActivities] = useState(true);
+  const [pendingTasksForDisplay, setPendingTasksForDisplay] = useState([]);
+  const [isLoadingPendingTasks, setIsLoadingPendingTasks] = useState(true);
   const [dashboardProjects, setDashboardProjects] = useState([]);
   const [projectTasks, setProjectTasks] = useState({}); // {projectId: [{title, status, ...}]}
   const [pieChartData, setPieChartData] = useState({
@@ -3604,7 +3460,12 @@ export default function DemoDash() {
                 <button className="text-xs text-gray-400 hover:text-white transition-colors">View All</button>
               </div>
               <div className="space-y-4 overflow-y-auto custom-scrollbar" style={{ maxHeight: '600px', minHeight: '500px' }}>
-                {pendingTasksForDisplay.length > 0 ? pendingTasksForDisplay.map((task, i) => (
+                {isLoadingPendingTasks ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
+                    <p className="text-gray-400 text-sm">Loading pending tasks...</p>
+                  </div>
+                ) : pendingTasksForDisplay.length > 0 ? pendingTasksForDisplay.map((task, i) => (
                   <div key={task.id || i} className="flex items-start gap-3 group pb-3 border-b border-[#1f1f1f]/30 last:border-0">
                     <div className="relative flex-shrink-0">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] flex items-center justify-center text-white text-xs font-semibold">
@@ -3642,7 +3503,10 @@ export default function DemoDash() {
                     </div>
                   </div>
                 )) : (
-                  <div className="text-center py-8 text-gray-500 text-sm">No pending tasks</div>
+                  <div className="text-center py-12 text-gray-500 text-sm">
+                    <p className="mb-2">No pending tasks</p>
+                    <p className="text-xs text-gray-600">Tasks will appear here once created</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -3654,7 +3518,12 @@ export default function DemoDash() {
                 <button className="text-xs text-gray-400 hover:text-white transition-colors duration-200">View All</button>
               </div>
               <div className="space-y-4 overflow-y-auto custom-scrollbar flex-1" style={{ maxHeight: '500px' }}>
-                {dashboardActivities.length > 0 ? dashboardActivities.map((activity, i) => (
+                {isLoadingActivities ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
+                    <p className="text-gray-400 text-sm">Loading recent activity...</p>
+                  </div>
+                ) : dashboardActivities.length > 0 ? dashboardActivities.map((activity, i) => (
                   <div key={i} className="flex items-start gap-3 group p-3 rounded-lg hover:bg-[#1a1a1a]/50 transition-all duration-200 cursor-pointer">
                     <div className="relative flex-shrink-0 mt-1.5">
                       <div className="w-2 h-2 rounded-full bg-gradient-to-r from-[#4C3BCF] to-[#6B5CE6] group-hover:scale-125 transition-transform duration-200"></div>
@@ -3676,7 +3545,10 @@ export default function DemoDash() {
                     </div>
                   </div>
                 )) : (
-                  <div className="text-center py-8 text-gray-500 text-sm">No recent activity</div>
+                  <div className="text-center py-12 text-gray-500 text-sm">
+                    <p className="mb-2">No recent activity</p>
+                    <p className="text-xs text-gray-600">Activity will appear here as tasks are completed</p>
+                  </div>
                 )}
               </div>
             </div>
