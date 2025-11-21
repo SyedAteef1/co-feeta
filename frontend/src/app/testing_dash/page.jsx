@@ -177,7 +177,7 @@ export default function TestingDash() {
     { user: 'John Smith', action: 'created new task', detail: '"User Interface Mockups" in Mobile App Redesign', time: '2 hours ago', avatar: 'JS' },
     { user: 'Feeta AI', action: 'suggested', detail: 'redistributing tasks to optimize team workload', time: '3 hours ago', avatar: '🤖' },
     { user: 'Emma Wilson', action: 'uploaded new files to', detail: '"Q4 Marketing Campaign"', time: '5 hours ago', avatar: 'EW' },
-    { user: 'Mike Johnson', action: 'created new milestone', detail: '"API Testing Phase`', time: '6 hours ago', avatar: 'MJ' },
+    { user: 'Mike Johnson', action: 'created new milestone', detail: '"API Testing Phase"', time: '6 hours ago', avatar: 'MJ' },
     { user: 'API Integration', action: 'project reached', detail: '90% completion milestone', time: '8 hours ago', avatar: '🎯' }
   ];
 
@@ -260,7 +260,7 @@ export default function TestingDash() {
   };
 
   return (
-    <div className=`min-h-screen bg-black text-white flex">
+    <div className="min-h-screen bg-black text-white flex">
       {/* Left Sidebar */}
       <div className="w-64 bg-[#0a0a0a] border-r border-[#2A2A2A] flex flex-col">
         {/* Logo */}
@@ -486,27 +486,27 @@ export default function TestingDash() {
                           <div className="w-3 h-3 bg-purple-600 rounded"></div>
                           <h3 className="font-bold text-white">{project.name}</h3>
                         </div>
-                        <p className="text-sm text-gray-400`>{project.startDate} - {project.endDate}</p>
+                        <p className="text-sm text-gray-400">{project.startDate} - {project.endDate}</p>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusBadgeColor(project.statusColor)}`}>
                         {project.status}
                       </span>
                     </div>
 
-                    <div className=`mb-4">
+                    <div className="mb-4">
                       <div className="flex items-center justify-between text-sm mb-2">
                         <span className="text-gray-400">Progress</span>
                         <span className="font-bold text-white">{project.progress}%</span>
                       </div>
                       <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-gradient-to-r from-[#4C3BCF] to-purple-600 rounded-full transition-all duration-500`
+                          className="h-full bg-gradient-to-r from-[#4C3BCF] to-purple-600 rounded-full transition-all duration-500"
                           style={{ width: `${project.progress}%` }}
                         ></div>
                       </div>
                     </div>
 
-                    <div className=`flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-4">
                       <div className="text-sm">
                         <span className="text-gray-400">Tasks:</span>
                         <span className="font-bold text-white ml-1">{project.tasksCompleted}/{project.tasksTotal}</span>
@@ -548,13 +548,13 @@ export default function TestingDash() {
                 <span className="text-sm text-gray-400">Updated 2 minutes ago</span>
               </div>
 
-              <div className="space-y-4`>
+              <div className="space-y-4">
                 {dailyBriefings.map((briefing) => (
                   <div key={briefing.id} className={`bg-gradient-to-br ${briefing.bgColor} border ${briefing.borderColor} rounded-xl p-6`}>
-                    <div className=`flex items-start gap-4`>
+                    <div className="flex items-start gap-4">
                       <div className={`w-12 h-12 ${briefing.iconColor} rounded-xl flex items-center justify-center flex-shrink-0`}>
                         {briefing.type === 'attention' && (
-                          <svg className=`w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                           </svg>
                         )}
@@ -581,7 +581,7 @@ export default function TestingDash() {
                           <span className="text-xs text-gray-400">{briefing.priority}</span>
                         </div>
                         <p className="text-sm text-gray-300 mb-4">{briefing.message}</p>
-                        <div className="flex items-center gap-3`>
+                        <div className="flex items-center gap-3">
                           <button className={`px-4 py-2 rounded-lg text-sm font-medium ${
                             briefing.type === 'attention' ? 'bg-blue-600 text-white hover:bg-blue-700' :
                             briefing.type === 'progress' ? 'bg-green-600 text-white hover:bg-green-700' :
@@ -590,7 +590,7 @@ export default function TestingDash() {
                           } transition-colors`}>
                             {briefing.buttonText}
                           </button>
-                          <button className=`text-gray-400 hover:text-white text-sm font-medium">
+                          <button className="text-gray-400 hover:text-white text-sm font-medium">
                             {briefing.buttonAction}
                           </button>
                         </div>
@@ -606,7 +606,7 @@ export default function TestingDash() {
               <div className="lg:col-span-2 bg-[#0a0a0a] border border-gray-800 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-bold text-white">Team Workload Overview</h2>
-                  <div className="flex items-center gap-2`>
+                  <div className="flex items-center gap-2">
                     {['This Week', 'Next Week', 'This Month'].map((range) => (
                       <button
                         key={range}
@@ -624,7 +624,7 @@ export default function TestingDash() {
                 </div>
 
                 {/* Chart */}
-                <div className=`h-64 mb-6">
+                <div className="h-64 mb-6">
                   <div className="flex items-end justify-between h-full border-b border-l border-gray-800 px-4">
                     {workloadData.map((member, idx) => {
                       const isOverloaded = member.thisWeek > member.capacity;
@@ -633,7 +633,7 @@ export default function TestingDash() {
                       return (
                         <div key={idx} className="flex flex-col items-center gap-2 flex-1">
                           <div className="w-full flex flex-col items-center">
-                            <span className="text-xs font-bold text-white mb-1`>{member.thisWeek}%</span>
+                            <span className="text-xs font-bold text-white mb-1">{member.thisWeek}%</span>
                             <div 
                               className={`w-12 rounded-t-lg transition-all duration-300 ${
                                 isOverloaded ? 'bg-red-500' : 
@@ -643,7 +643,7 @@ export default function TestingDash() {
                               style={{ height: `${height}%` }}
                             ></div>
                           </div>
-                          <span className=`text-xs text-gray-400 rotate-0">{member.name}</span>
+                          <span className="text-xs text-gray-400 rotate-0">{member.name}</span>
                         </div>
                       );
                     })}
@@ -682,16 +682,16 @@ export default function TestingDash() {
 
                 <div className="space-y-4">
                   {upcomingDeadlines.map((deadline) => (
-                    <div key={deadline.id} className="flex items-start gap-3 p-3 hover:bg-[#1C1C1C] rounded-lg transition-colors`>
+                    <div key={deadline.id} className="flex items-start gap-3 p-3 hover:bg-[#1C1C1C] rounded-lg transition-colors">
                       <div className={`w-10 h-10 ${deadline.iconBg} rounded-lg flex items-center justify-center text-lg flex-shrink-0`}>
                         {deadline.icon}
                       </div>
-                      <div className=`flex-1 min-w-0">
+                      <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-white text-sm mb-0.5">{deadline.title}</h4>
                         <p className="text-xs text-gray-400 mb-1">{deadline.project}</p>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-medium text-white">{deadline.dueDate}</span>
-                          <span className="text-xs text-gray-500`>• {deadline.dueDateFull}</span>
+                          <span className="text-xs text-gray-500">• {deadline.dueDateFull}</span>
                         </div>
                       </div>
                       <div className={`w-8 h-8 bg-gradient-to-br ${deadline.avatarColor} rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0`}>
@@ -704,7 +704,7 @@ export default function TestingDash() {
             </div>
 
             {/* Quick Actions */}
-            <div className=`mb-8">
+            <div className="mb-8">
               <h2 className="text-xl font-bold text-white mb-6">Quick Actions</h2>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <button className="bg-[#0a0a0a] border border-gray-800 rounded-xl p-6 hover:shadow-lg hover:border-[#4C3BCF]/30 transition-all text-center group">
@@ -754,7 +754,7 @@ export default function TestingDash() {
               <div className="lg:col-span-2 bg-[#0a0a0a] border border-gray-800 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-bold text-white">Performance Metrics</h2>
-                  <div className="flex items-center gap-2`>
+                  <div className="flex items-center gap-2">
                     {['This Week', 'Last Week', 'This Month'].map((range) => (
                       <button
                         key={range}
@@ -771,7 +771,7 @@ export default function TestingDash() {
                   </div>
                 </div>
 
-                <div className=`grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-500/30 rounded-xl p-4">
                     <div className="text-3xl font-bold text-blue-400 mb-1">87%</div>
                     <div className="text-sm text-blue-300 font-medium mb-2">Task Completion</div>
@@ -861,11 +861,11 @@ export default function TestingDash() {
                         <Image src={integration.icon} alt={integration.name} width={24} height={24} className="object-contain" />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-white text-sm`>{integration.name}</h4>
+                        <h4 className="font-semibold text-white text-sm">{integration.name}</h4>
                         <p className={`text-xs ${integration.statusColor}`}>{integration.status}</p>
                       </div>
                     </div>
-                    <svg className=`w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </div>

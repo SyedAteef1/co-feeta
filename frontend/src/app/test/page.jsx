@@ -72,7 +72,7 @@ export default function TestPage() {
   };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth` });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
@@ -140,7 +140,7 @@ export default function TestPage() {
       const data = await res.json();
       setConversationHistory(data.conversations || []);
     } catch (err) {
-      console.error(`Error fetching history:`, err);
+      console.error("Error fetching history:", err);
     }
   };
 
@@ -303,7 +303,7 @@ export default function TestPage() {
   const connectGithub = () => {
     const token = localStorage.getItem('token');
     if (!token) {
-      alert(`Please login first`);
+      alert("Please login first");
       return;
     }
     window.location.href = `${API_BASE_URL}/github/install?token=${token}`;
@@ -312,7 +312,7 @@ export default function TestPage() {
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
     if (!selectedProject?.repo) {
-      alert(`Please select a project and connect a repository first");
+      alert("Please select a project and connect a repository first");
       return;
     }
 
@@ -324,7 +324,7 @@ export default function TestPage() {
 
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
-    setInput("`);
+    setInput("");
     setIsLoading(true);
 
     // Save user message to database
@@ -344,7 +344,7 @@ export default function TestPage() {
             content: input
           })
         });
-        console.log(`💾 User message saved to database");
+        console.log("💾 User message saved to database");
       } catch (error) {
         console.error("Error saving user message:", error);
       }
@@ -353,7 +353,7 @@ export default function TestPage() {
     try {
       const [owner, repoName] = selectedProject.repo?.full_name?.split('/') || [];
 
-      const res = await fetch(`${API_BASE_URL}/api/analyze`, {
+      const res = await fetch("${API_BASE_URL}/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -382,11 +382,11 @@ export default function TestPage() {
 
       if (data.status === "clear" || data.status === "needs_context") {
         const token = localStorage.getItem('token');
-        const planRes = await fetch(`${API_BASE_URL}/api/generate_plan`, {
+        const planRes = await fetch("${API_BASE_URL}/api/generate_plan", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
-            "Authorization`: `Bearer ${token}`
+            "Authorization": `Bearer ${token}`
           },
           body: JSON.stringify({
             task: input,
@@ -398,11 +398,11 @@ export default function TestPage() {
         const planData = await planRes.json();
         
         if (planRes.ok && !planData.error) {
-          aiResponse.content = `I've analyzed your request: `${input}`\n\nI've created an implementation plan with ${planData.subtasks?.length} subtasks.`;
+          aiResponse.content = `I've analyzed your request: "${input}"\n\nI've created an implementation plan with ${planData.subtasks?.length} subtasks.`;
           aiResponse.plan = planData;
         }
-      } else if (data.status === `ambiguous") {
-        aiResponse.content = "I need some clarification before proceeding:`;
+      } else if (data.status === "ambiguous") {
+        aiResponse.content = "I need some clarification before proceeding:";
         aiResponse.questions = data.questions;
         aiResponse.needsAnswers = true;
         aiResponse.originalTask = input; // Store the original task
@@ -429,9 +429,9 @@ export default function TestPage() {
               data: aiResponse.plan ? { plan: aiResponse.plan } : { questions: aiResponse.questions }
             })
           });
-          console.log(`💾 AI response saved to database");
+          console.log("💾 AI response saved to database");
         } catch (error) {
-          console.error("Error saving AI response:`, error);
+          console.error("Error saving AI response:", error);
         }
       }
 
@@ -452,7 +452,7 @@ export default function TestPage() {
     const message = messages[messageIndex];
     setIsLoading(true);
 
-    console.log(`📝 Submitting answers for message:", message);
+    console.log("📝 Submitting answers for message:", message);
     console.log("💬 Answers:", answers);
 
     // Find the original user message (task) before the questions
@@ -470,7 +470,7 @@ export default function TestPage() {
     console.log("🎯 Original task:", originalTask);
 
     if (!originalTask) {
-      alert("Error: Could not find the original task. Please try again.`);
+      alert("Error: Could not find the original task. Please try again.");
       setIsLoading(false);
       return;
     }
@@ -489,21 +489,21 @@ export default function TestPage() {
         answers: formattedAnswers
       };
 
-      console.log(`📡 Sending to /api/generate_plan:", requestBody);
+      console.log("📡 Sending to /api/generate_plan:", requestBody);
 
       const token = localStorage.getItem('token');
-      const planRes = await fetch(`${API_BASE_URL}/api/generate_plan`, {
+      const planRes = await fetch("${API_BASE_URL}/api/generate_plan", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "Authorization`: `Bearer ${token}`
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(requestBody),
       });
 
-      console.log(`✅ Response status:", planRes.status);
+      console.log("✅ Response status:", planRes.status);
       const planData = await planRes.json();
-      console.log("📦 Plan data received:`, planData);
+      console.log("📦 Plan data received:", planData);
       
       if (planRes.ok && !planData.error) {
         const aiResponse = {
@@ -513,7 +513,7 @@ export default function TestPage() {
           plan: planData
         };
 
-        console.log(`✨ Adding AI response to messages:`, aiResponse);
+        console.log("✨ Adding AI response to messages:", aiResponse);
 
         const updatedMessages = [...messages, aiResponse];
         setMessages(updatedMessages);
@@ -536,17 +536,17 @@ export default function TestPage() {
                 data: { plan: planData }
               })
             });
-            console.log(`💾 Plan saved to database");
+            console.log("💾 Plan saved to database");
           } catch (error) {
             console.error("Error saving plan:", error);
           }
         }
       } else {
-        console.error("❌ Error from API:`, planData.error);
+        console.error("❌ Error from API:", planData.error);
         alert(`Error: ${planData.error}`);
       }
     } catch (error) {
-      console.error(`❌ Error submitting answers:`, error);
+      console.error("❌ Error submitting answers:", error);
       alert(`Error submitting answers: ${error.message}`);
     }
 
@@ -571,13 +571,13 @@ export default function TestPage() {
 
       if (messages.length === 0) {
         setChannelSummary({
-          overall_status: `No recent messages in this channel",
+          overall_status: "No recent messages in this channel",
           key_updates: [],
           active_users: [],
           blockers: [],
           progress_indicators: [],
           action_items: [],
-          sentiment: "neutral`
+          sentiment: "neutral"
         });
         return;
       }
@@ -597,7 +597,7 @@ export default function TestPage() {
       setChannelSummary(summaryData.summary);
       setShowSummary(true);
     } catch (error) {
-      console.error(`Error fetching summary:", error);
+      console.error("Error fetching summary:", error);
       setChannelSummary({ overall_status: "Error loading summary", error: error.message });
     } finally {
       setLoadingSummary(false);
@@ -618,16 +618,16 @@ export default function TestPage() {
     
     setSendingAll(true);
     const token = localStorage.getItem('token');
-    const originalPrompt = conversationHistory[conversationHistory.length - 1]?.prompt || "Task`;
+    const originalPrompt = conversationHistory[conversationHistory.length - 1]?.prompt || "Task";
     
     try {
       const summaryMessage = `🚀 *New Task Breakdown*\n\n*Original Prompt:* ${originalPrompt}\n\n*Main Goal:* ${plan.goal}\n*Total Subtasks:* ${plan.subtasks.length}\n\n---\n`;
       
-      await fetch(`${API_BASE_URL}/slack/api/send_message", {
+      await fetch("${API_BASE_URL}/slack/api/send_message", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "Authorization`: `Bearer ${token}`
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
           channel: selectedChannel,
@@ -639,11 +639,11 @@ export default function TestPage() {
         const subtask = plan.subtasks[i];
         const message = `📝 *Task ${i + 1}/${plan.subtasks.length}: ${subtask.title}*\n\n*Description:* ${subtask.description}\n*Assigned to:* ${subtask.assigned_to}\n*Deadline:* ${subtask.deadline}\n*Expected Output:* ${subtask.output}\n*Clarity Score:* ${subtask.clarity_score}%`;
         
-        await fetch(`${API_BASE_URL}/slack/api/send_message", {
+        await fetch("${API_BASE_URL}/slack/api/send_message", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
-            "Authorization`: `Bearer ${token}`
+            "Authorization": `Bearer ${token}`
           },
           body: JSON.stringify({
             channel: selectedChannel,
@@ -660,7 +660,7 @@ export default function TestPage() {
         fetchChannelSummary(selectedChannel);
       }, 2000);
     } catch (err) {
-      console.error(`Error sending to Slack:`, err);
+      console.error("Error sending to Slack:", err);
       alert(`❌ Error sending tasks: ${err.message}`);
     }
     
@@ -718,10 +718,10 @@ export default function TestPage() {
   };
 
   return (
-    <div className=`flex h-screen bg-[#0a0a0a] text-white overflow-hidden`>
+    <div className="flex h-screen bg-[#0a0a0a] text-white overflow-hidden">
       {/* Sidebar */}
       <div className={`${showSidebar ? 'w-60' : 'w-0'} transition-all duration-300 bg-[#111111] flex flex-col border-r border-[#1a1a1a] overflow-hidden`}>
-        <div className=`flex items-center gap-2 px-5 py-6 border-b border-[#1a1a1a]">
+        <div className="flex items-center gap-2 px-5 py-6 border-b border-[#1a1a1a]">
           <Image src="/Images/F2.png" alt="Logo" width={32} height={32} className="rounded-lg" />
           <span className="font-semibold text-base">Feeta AI</span>
           <button className="ml-auto text-gray-500 hover:text-gray-300">
@@ -750,7 +750,7 @@ export default function TestPage() {
         <div className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
           <div className="text-xs text-gray-500 px-3 pb-2">Your Projects</div>
           {projects.length === 0 ? (
-            <div className="px-3 py-4 text-xs text-gray-500 text-center`>
+            <div className="px-3 py-4 text-xs text-gray-500 text-center">
               No projects yet
             </div>
           ) : (
@@ -762,7 +762,7 @@ export default function TestPage() {
                   selectedProject?.id === project.id ? 'bg-[#1a1a1a] text-white' : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
                 }`}
               >
-                <div className=`truncate font-medium">{project.name}</div>
+                <div className="truncate font-medium">{project.name}</div>
                 {project.repo && (
                   <div className="text-xs text-gray-500 truncate mt-0.5">
                     {project.repo.name}
@@ -783,7 +783,7 @@ export default function TestPage() {
                 <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5"/>
                 <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5"/>
                 <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-                <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5`/>
+                <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5"/>
               </svg>
               <span>Slack Monitor</span>
             </button>
@@ -797,7 +797,7 @@ export default function TestPage() {
                   : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
               } ${followupLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              <svg width=`16" height="16" viewBox="0 0 16 16" fill="none">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M8 2v6l4 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
               </svg>
@@ -1152,7 +1152,7 @@ export default function TestPage() {
                   setShowFollowupModal(false);
                   setFollowupChannel('');
                 }}
-                className="flex-1 bg-[#1a1a1a] px-4 py-2 rounded-lg hover:bg-[#222222] transition-colors`
+                className="flex-1 bg-[#1a1a1a] px-4 py-2 rounded-lg hover:bg-[#222222] transition-colors"
               >
                 Cancel
               </button>
@@ -1172,13 +1172,13 @@ function MessageComponent({ message, index, onSubmitAnswers, onAssignAll, channe
 
   return (
     <div className={`mb-8 ${message.role === 'user' ? '' : 'bg-[#111111] -mx-4 px-4 py-6'}`}>
-      <div className=`max-w-3xl mx-auto">
-        <div className="flex gap-4`>
+      <div className="max-w-3xl mx-auto">
+        <div className="flex gap-4">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
             message.role === 'user' ? 'bg-gradient-to-br from-purple-500 to-pink-500' : 'bg-gradient-to-br from-blue-500 to-cyan-500'
           }`}>
             {message.role === 'user' ? (
-              <span className=`text-sm font-bold">{userName?.charAt(0) || 'U'}</span>
+              <span className="text-sm font-bold">{userName?.charAt(0) || 'U'}</span>
             ) : (
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
@@ -1217,9 +1217,9 @@ function MessageComponent({ message, index, onSubmitAnswers, onAssignAll, channe
                       </div>
                       <input
                         type="text"
-                        placeholder="Your answer...`
+                        placeholder="Your answer..."
                         onChange={(e) => setAnswers({ ...answers, [`q${qi}`]: e.target.value })}
-                        className=`w-full bg-[#111111] border border-[#1a1a1a] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#2a2a2a]"
+                        className="w-full bg-[#111111] border border-[#1a1a1a] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#2a2a2a]"
                       />
                     </div>
                   );
@@ -1289,14 +1289,14 @@ function MessageComponent({ message, index, onSubmitAnswers, onAssignAll, channe
                       disabled={!localSelectedChannel || sendingAll}
                       className="px-4 py-2 bg-white text-black hover:bg-gray-200 disabled:opacity-50 rounded-lg whitespace-nowrap font-medium transition-colors"
                     >
-                      {sendingAll ? "Sending...` : `Send ${message.plan.subtasks?.length} Tasks`}
+                      {sendingAll ? "Sending..." : `Send ${message.plan.subtasks?.length} Tasks`}
                     </button>
                   </div>
                 </div>
 
                 {/* Channel Summary Section */}
                 {showSummary && channelSummary && localSelectedChannel && (
-                  <div className=`mt-6 p-4 bg-[#343541] border border-purple-500/30 rounded-lg">
+                  <div className="mt-6 p-4 bg-[#343541] border border-purple-500/30 rounded-lg">
                     <div className="flex items-center justify-between mb-4">
                       <h5 className="font-semibold text-purple-400 flex items-center gap-2">
                         📊 Channel Activity Summary
@@ -1325,7 +1325,7 @@ function MessageComponent({ message, index, onSubmitAnswers, onAssignAll, channe
                         <div className="text-sm font-medium text-purple-300 mb-1">📌 Status</div>
                         <div className="text-sm text-gray-300">{channelSummary.overall_status}</div>
                         {channelSummary.sentiment && (
-                          <div className="mt-2 text-xs`>
+                          <div className="mt-2 text-xs">
                             Sentiment: <span className={`font-medium ${
                               channelSummary.sentiment === 'positive' ? 'text-green-400' :
                               channelSummary.sentiment === 'negative' ? 'text-red-400' :
@@ -1337,7 +1337,7 @@ function MessageComponent({ message, index, onSubmitAnswers, onAssignAll, channe
 
                       {/* Key Updates */}
                       {channelSummary.key_updates && channelSummary.key_updates.length > 0 && (
-                        <div className=`p-3 bg-[#40414F] rounded-lg">
+                        <div className="p-3 bg-[#40414F] rounded-lg">
                           <div className="text-sm font-medium text-purple-300 mb-2">💬 Key Updates</div>
                           <div className="space-y-1">
                             {channelSummary.key_updates.map((update, idx) => (

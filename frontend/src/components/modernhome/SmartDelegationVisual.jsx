@@ -94,12 +94,12 @@ export default function SmartDelegationVisual({ activeFeature }) {
               <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
               </svg>
-              <span className="text-xs text-gray-500`>Technical delegation</span>
+              <span className="text-xs text-gray-500">Technical delegation</span>
             </div>
             
             {/* Goal Input with enhanced styling */}
             <div className={`relative bg-gray-800/60 rounded-2xl p-3 border border-gray-700/50 mb-4 transition-all duration-700 shadow-lg shadow-[#4C3BCF]/5 animate-fadeIn ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-              <div className=`absolute -top-2 -right-2">
+              <div className="absolute -top-2 -right-2">
                 <div className="bg-[#4C3BCF] text-white text-xs px-2 py-0.5 rounded-full shadow-lg animate-pulse">
                   Project
                 </div>
@@ -137,7 +137,7 @@ export default function SmartDelegationVisual({ activeFeature }) {
                   {tasks.map((task, idx) => (
                     <div
                       key={task.id}
-                      className="bg-gray-800/40 rounded-xl px-3 py-2.5 border border-gray-700/30 flex items-center gap-3 transition-all duration-500 hover:border-[#4C3BCF]/40 hover:bg-gray-800/60 hover:shadow-lg hover:shadow-[#4C3BCF]/10 group`
+                      className="bg-gray-800/40 rounded-xl px-3 py-2.5 border border-gray-700/30 flex items-center gap-3 transition-all duration-500 hover:border-[#4C3BCF]/40 hover:bg-gray-800/60 hover:shadow-lg hover:shadow-[#4C3BCF]/10 group"
                       style={{
                         animation: `slideInLeft 0.5s ease-out ${idx * 0.15}s both`,
                         opacity: animationPhase >= 3 ? 1 : 0
@@ -150,11 +150,11 @@ export default function SmartDelegationVisual({ activeFeature }) {
                         }}>
                         {task.assignee[0]}
                       </div>
-                      <div className=`flex-1 min-w-0">
+                      <div className="flex-1 min-w-0">
                         <div className="text-xs text-white font-medium">{task.title}</div>
                         <div className="text-xs text-gray-400 flex items-center gap-1">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z` />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
                           {task.assignee}
                         </div>
@@ -172,7 +172,7 @@ export default function SmartDelegationVisual({ activeFeature }) {
                 
                 {/* Assignment Approval Button */}
                 {animationPhase >= 3 && (
-                  <div className=`mt-4 animate-fadeIn">
+                  <div className="mt-4 animate-fadeIn">
                     <button className="w-full bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-2 border-green-500/50 text-green-400 px-4 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:border-green-500 hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300 group">
                       <svg className="w-4 h-4 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -190,12 +190,12 @@ export default function SmartDelegationVisual({ activeFeature }) {
                 {tasks.slice(0, 4).map((task, idx) => (
                   <div
                     key={task.id}
-                    className="bg-gray-800/40 rounded-xl p-3 border border-gray-700/30 transition-all duration-500 hover:border-[#4C3BCF]/30`
+                    className="bg-gray-800/40 rounded-xl p-3 border border-gray-700/30 transition-all duration-500 hover:border-[#4C3BCF]/30"
                     style={{
                       animation: `fadeInUp 0.5s ease-out ${idx * 0.1}s both`
                     }}
                   >
-                    <div className=`text-xs text-white font-medium mb-2">{task.title}</div>
+                    <div className="text-xs text-white font-medium mb-2">{task.title}</div>
                     <div className="flex items-center gap-2">
                       <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white`}
                         style={{ backgroundColor: teamMembers.find(m => m.name === task.assignee)?.color }}>
@@ -238,13 +238,13 @@ export default function SmartDelegationVisual({ activeFeature }) {
               {teamMembers.map((member, idx) => (
                 <div
                   key={member.id}
-                  className="bg-gray-800/40 rounded-xl p-3 border border-gray-700/30 hover:border-gray-600/50 transition-all hover:shadow-lg group`
+                  className="bg-gray-800/40 rounded-xl p-3 border border-gray-700/30 hover:border-gray-600/50 transition-all hover:shadow-lg group"
                   style={{
                     animation: `slideInRight 0.5s ease-out ${idx * 0.1}s both`,
                     boxShadow: `0 0 0 ${getWorkloadColor(member.workload)}00`
                   }}
                 >
-                  <div className=`flex items-center gap-3 mb-2`>
+                  <div className="flex items-center gap-3 mb-2">
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg group-hover:scale-110 transition-transform`}
                       style={{ 
                         backgroundColor: member.color,
@@ -252,7 +252,7 @@ export default function SmartDelegationVisual({ activeFeature }) {
                       }}>
                       {member.name[0]}
                     </div>
-                    <div className=`flex-1">
+                    <div className="flex-1">
                       <div className="text-xs text-white font-semibold">{member.name}</div>
                       <div className="text-xs text-gray-400 flex items-center gap-1">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -267,7 +267,7 @@ export default function SmartDelegationVisual({ activeFeature }) {
                   </div>
                   <div className="relative h-2 bg-gray-800 rounded-full overflow-hidden">
                     <div
-                      className="absolute top-0 left-0 h-full rounded-full transition-all duration-1000 animate-pulse`
+                      className="absolute top-0 left-0 h-full rounded-full transition-all duration-1000 animate-pulse"
                       style={{
                         width: `${member.workload}%`,
                         backgroundColor: getWorkloadColor(member.workload),
@@ -276,7 +276,7 @@ export default function SmartDelegationVisual({ activeFeature }) {
                     />
                   </div>
                   {member.workload > 80 && (
-                    <div className=`mt-2 flex items-center gap-1 text-xs text-red-400">
+                    <div className="mt-2 flex items-center gap-1 text-xs text-red-400">
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                       </svg>

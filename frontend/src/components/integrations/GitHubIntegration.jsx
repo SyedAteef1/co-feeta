@@ -143,7 +143,7 @@ export const GitHubIntegration = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1">
                   <h3 className="text-xl font-bold mb-4">Repositories ({repos.length})</h3>
-                  <div className="space-y-2`>
+                  <div className="space-y-2">
                     {repos.map((repo) => (
                       <div
                         key={repo.id}
@@ -151,7 +151,7 @@ export const GitHubIntegration = () => {
                           selectedRepo?.id === repo.id ? 'border-blue-500 bg-blue-50' : ''
                         }`}
                       >
-                        <div onClick={() => setSelectedRepo(repo)} className=`cursor-pointer">
+                        <div onClick={() => setSelectedRepo(repo)} className="cursor-pointer">
                           <h4 className="font-bold">{repo.name}</h4>
                           <p className="text-sm text-gray-600">{repo.description || 'No description'}</p>
                           <div className="flex gap-2 mt-2">
@@ -217,12 +217,12 @@ export const GitHubIntegration = () => {
                                   {q.options.map((option, optIdx) => (
                                     <label key={optIdx} className="flex items-center space-x-2 cursor-pointer">
                                       <input
-                                        type="radio`
+                                        type="radio"
                                         name={`question_${idx}`}
                                         value={option}
                                         checked={answers[idx] === option}
                                         onChange={() => handleAnswerSelect(idx, option)}
-                                        className=`w-4 h-4"
+                                        className="w-4 h-4"
                                       />
                                       <span className="text-sm">{option}</span>
                                     </label>

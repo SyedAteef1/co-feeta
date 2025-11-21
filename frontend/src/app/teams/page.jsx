@@ -59,7 +59,7 @@ export default function TeamsPage() {
     setLoading(true);
     
     const formData = new FormData(e.target);
-    const selectedRoles = Array.from(e.target.querySelectorAll('input[name="roles`]:checked')).map(cb => cb.value);
+    const selectedRoles = Array.from(e.target.querySelectorAll('input[name="roles"]:checked')).map(cb => cb.value);
     formData.append('selected_roles', JSON.stringify(selectedRoles));
     
     const token = localStorage.getItem('token');
@@ -104,7 +104,7 @@ export default function TeamsPage() {
   };
 
   return (
-    <div className=`min-h-screen bg-black text-white p-8">
+    <div className="min-h-screen bg-black text-white p-8">
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex justify-between items-center">
           <div>
@@ -121,7 +121,7 @@ export default function TeamsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto mb-6">
-        <div className="flex gap-4 border-b border-[#1a1a1a]`>
+        <div className="flex gap-4 border-b border-[#1a1a1a]">
           <button
             onClick={() => setActiveTab('all')}
             className={`px-6 py-3 font-medium transition-colors ${
@@ -146,7 +146,7 @@ export default function TeamsPage() {
       </div>
 
       {activeTab === 'assigned' && (
-        <div className=`max-w-7xl mx-auto mb-6">
+        <div className="max-w-7xl mx-auto mb-6">
           <select
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
@@ -186,7 +186,7 @@ export default function TeamsPage() {
 
               <div className="flex items-center gap-2 mb-3">
                 {member.email && (
-                  <div className="text-sm text-gray-400`>
+                  <div className="text-sm text-gray-400">
                     📧 {member.email}
                   </div>
                 )}
@@ -200,7 +200,7 @@ export default function TeamsPage() {
               </div>
 
               {member.selected_roles && member.selected_roles.length > 0 && (
-                <div className=`mb-3">
+                <div className="mb-3">
                   <div className="text-xs text-gray-500 mb-2">Roles</div>
                   <div className="flex flex-wrap gap-2">
                     {member.selected_roles.map((role, i) => (
@@ -256,7 +256,7 @@ export default function TeamsPage() {
               {/* Idle Status */}
               <div className="mt-4 pt-4 border-t border-[#1a1a1a]">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-gray-500`>Availability</span>
+                  <span className="text-xs text-gray-500">Availability</span>
                   <span className={`text-xs font-medium ${
                     member.status === 'idle' ? 'text-green-400' :
                     member.status === 'busy' ? 'text-yellow-400' :
@@ -267,7 +267,7 @@ export default function TeamsPage() {
                      '🔴 Overloaded'}
                   </span>
                 </div>
-                <div className=`w-full bg-[#111111] rounded-full h-2 mb-2`>
+                <div className="w-full bg-[#111111] rounded-full h-2 mb-2">
                   <div
                     className={`h-2 rounded-full transition-all ${
                       member.idle_percentage >= 50 ? 'bg-green-500' :
@@ -277,7 +277,7 @@ export default function TeamsPage() {
                     style={{ width: `${member.idle_percentage || 0}%` }}
                   />
                 </div>
-                <div className=`flex justify-between text-xs text-gray-500">
+                <div className="flex justify-between text-xs text-gray-500">
                   <span>{member.idle_percentage || 0}% idle</span>
                   <span>{member.idle_hours || 0}/{member.capacity || 40}hrs free</span>
                 </div>
@@ -361,7 +361,7 @@ export default function TeamsPage() {
                 <input
                   type="file"
                   name="resume"
-                  accept=".pdf,.docx,.doc`
+                  accept=".pdf,.docx,.doc"
                   required
                   onChange={async (e) => {
                     const file = e.target.files[0];
@@ -387,7 +387,7 @@ export default function TeamsPage() {
                     }
                     setProcessingResume(false);
                   }}
-                  className=`w-full bg-[#111111] border border-[#1a1a1a] rounded-lg px-4 py-3 focus:outline-none focus:border-[#2a2a2a]"
+                  className="w-full bg-[#111111] border border-[#1a1a1a] rounded-lg px-4 py-3 focus:outline-none focus:border-[#2a2a2a]"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   {processingResume ? '⏳ AI analyzing resume...' : '✨ AI will extract skills, role, and suggest matching roles'}
