@@ -921,5 +921,129 @@ def get_weekly_deadlines(user_id, week_start_date=None):
         logger.error(f"❌ Error getting weekly deadlines: {str(e)}")
         return {"min_deadline": None, "tasks_this_week": [], "count": 0}
 
+# ============== SLACK MESSAGE TRACKING ==============
+
+def find_task_by_keywords(user_id, message_text, assigned_to_name=None):
+    """Find a task that matches keywords in a Slack message"""
+    try:
+        from bson import ObjectId
+        
+        projects = get_user_projects(user_id)
+        if not projects:
+            return None
+        
+        project_ids = [ObjectId(p['_id']) for p in projects]
+        message_lower = message_text.lower()
+        
+        query = {
+            "project_id": {"$in": project_ids},
+            "status": {"$in": ["in_progress", "pending", "approved"]}
+        }
+        
+        if assigned_to_name:
+            query["assigned_to"] = {"$regex": assigned_to_name, "$options": "i"}
+        
+        tasks = list(tasks_collection.find(query))
+        
+        best_match = None
+        best_score = 0
+        
+        for task in tasks:
+            score = 0
+            title = task.get('title', '').lower()
+            
+            title_words = title.split()
+            for word in title_words:
+                if len(word) > 3 and word in message_lower:
+                    score += 2
+            
+            message_words = message_lower.split()
+            for word in message_words:
+                if len(word) > 3 and word in title:
+                    score += 1
+            
+            if assigned_to_name and assigned_to_name.lower() in task.get('assigned_to', '').lower():
+                score += 3
+            
+            if score > best_score:
+                best_score = score
+                best_match = task
+        
+        if best_score > 2:
+            logger.info(f"✅ Found matching task: {best_match.get('title')} (score: {best_score})")
+            return best_match
+        
+        return None
+        
+    except Exception as e:
+        logger.error(f"❌ Error finding task by keywords: {str(e)}")
+        return None
+
+
+def update_task_from_slack(task_id, status, slack_message=None, updated_by=None):
+    """Update task status based on Slack message"""
+    try:
+        from bson import ObjectId
+        
+        if not ObjectId.is_valid(task_id):
+            return False
+        
+        updates = {
+            'status': status,
+            'updated_at': datetime.utcnow(),
+            'slack_tracked': True,
+            'last_slack_update': datetime.utcnow()
+        }
+        
+        if slack_message:
+            updates['slack_update_message'] = slack_message[:500]
+        
+        if updated_by:
+            updates['slack_updated_by'] = updated_by
+        
+        result = tasks_collection.update_one(
+            {"_id": ObjectId(task_id)},
+            {"$set": updates}
+        )
+        
+        if result.modified_count > 0:
+            logger.info(f"✅ Task {task_id} auto-updated to '{status}' via Slack")
+            return True
+        
+        return False
+        
+    except Exception as e:
+        logger.error(f"❌ Error updating task from Slack: {str(e)}")
+        return False
+
+
+def get_slack_tracked_tasks(user_id, limit=10):
+    """Get recently auto-tracked tasks from Slack"""
+    try:
+        from bson import ObjectId
+        
+        projects = get_user_projects(user_id)
+        if not projects:
+            return []
+        
+        project_ids = [ObjectId(p['_id']) for p in projects]
+        
+        tasks = list(tasks_collection.find({
+            "project_id": {"$in": project_ids},
+            "slack_tracked": True
+        }).sort("last_slack_update", DESCENDING).limit(limit))
+        
+        for task in tasks:
+            task['_id'] = str(task['_id'])
+            task['id'] = str(task['_id'])
+            task['project_id'] = str(task['project_id'])
+        
+        return tasks
+        
+    except Exception as e:
+        logger.error(f"❌ Error getting slack tracked tasks: {str(e)}")
+        return []
+
+
 logger.info("✅ Database module initialized successfully")
 

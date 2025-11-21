@@ -26,7 +26,7 @@ export const Integrations = () => {
   const handleConnect = () => {
     localStorage.removeItem('slack_user_id');
     localStorage.removeItem('slack_team_id');
-    window.location.href = "${API_BASE_URL}/slack/install";
+    window.location.href = `${API_BASE_URL}/slack/install`;
   };
 
   const fetchChannels = async (user_id) => {

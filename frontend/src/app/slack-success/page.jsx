@@ -17,7 +17,7 @@ function SlackSuccessContent() {
   const [aiGeneratedTask, setAiGeneratedTask] = useState("");
   const [generatingAI, setGeneratingAI] = useState(false);
   const [aiLogs, setAiLogs] = useState([]);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState("`);
   const [apiResponse, setApiResponse] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -118,7 +118,7 @@ function SlackSuccessContent() {
 
   const generateTask = async () => {
     if (!aiPrompt.trim()) {
-      setStatus("Enter a task prompt first.");
+      setStatus(`Enter a task prompt first.");
       addLog("Error: No prompt entered", "error");
       return;
     }
@@ -131,14 +131,14 @@ function SlackSuccessContent() {
     addLog("Backend URL: http://localhost:5001/api/generate_task", "info");
     
     try {
-      const assigneeName = channelMembers.find(m => m.id === mentionUserId)?.real_name || "team member";
-      addLog(`Assignee: ${assigneeName}`, "info");
-      addLog(`Prompt: "${aiPrompt}"`, "info");
+      const assigneeName = channelMembers.find(m => m.id === mentionUserId)?.real_name || "team member`;
+      addLog(`Assignee: ${assigneeName}`, `info");
+      addLog(`Prompt: `${aiPrompt}``, "info");
       addLog("Calling GLM-4-Flash API...", "info");
       
       const res = await fetch("http://localhost:5001/api/generate_task", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json` },
         body: JSON.stringify({
           prompt: aiPrompt,
           assignee_name: assigneeName
@@ -148,33 +148,33 @@ function SlackSuccessContent() {
       });
       
       if (!res.ok) {
-        addLog(`API Response Status: ${res.status} ${res.statusText}`, "error");
+        addLog(`API Response Status: ${res.status} ${res.statusText}`, `error`);
         const errorText = await res.text();
-        addLog(`Error details: ${errorText}`, "error");
+        addLog(`Error details: ${errorText}`, `error`);
         setStatus(`API error: ${res.status} ${res.statusText}`);
         return;
       }
       
-      addLog(`API Response Status: ${res.status}`, "success");
+      addLog(`API Response Status: ${res.status}`, `success");
       const data = await res.json();
       addLog(`Response received`, "info");
       
       if (data.ok) {
-        addLog("Task generated successfully!", "success");
-        addLog(`Task length: ${data.task.length} characters`, "info");
+        addLog("Task generated successfully!", "success`);
+        addLog(`Task length: ${data.task.length} characters`, `info");
         setAiGeneratedTask(data.task);
         setMessageText(data.task);
-        setStatus("Task generated! Review and send.");
+        setStatus("Task generated! Review and send.`);
       } else {
-        addLog(`Generation failed: ${data.error || "Unknown error"}`, "error");
-        setStatus("AI generation failed: " + (data.error || "Unknown error"));
+        addLog(`Generation failed: ${data.error || "Unknown error"}`, `error");
+        setStatus("AI generation failed: " + (data.error || "Unknown error`));
       }
     } catch (e) {
-      addLog(`Fetch Error: ${e.message}`, "error");
-      addLog(`Error Type: ${e.name}`, "error");
+      addLog(`Fetch Error: ${e.message}`, `error`);
+      addLog(`Error Type: ${e.name}`, `error");
       if (e.message.includes('Failed to fetch')) {
         addLog("Possible causes: Backend not running or CORS issue", "error");
-        addLog("Solution: Make sure backend is running on ${API_BASE_URL}", "info");
+        addLog(`Solution: Make sure backend is running on ${API_BASE_URL}`, "info");
       }
       setStatus("AI error: " + e.message);
     } finally {
@@ -193,7 +193,7 @@ function SlackSuccessContent() {
     const currentUserId = user_id || (typeof window !== 'undefined' ? localStorage.getItem('slack_user_id') : null);
     
     try {
-      const res = await fetch("${API_BASE_URL}/api/send_message", {
+      const res = await fetch(`${API_BASE_URL}/api/send_message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -226,7 +226,7 @@ function SlackSuccessContent() {
       <h3>Channels & Conversations</h3>
       <div>
         <select value={selectedChannel} onChange={(e) => setSelectedChannel(e.target.value)} style={{ padding: 8, fontSize: 16, width: '100%' }}>
-          <option value="">-- Select channel --</option>
+          <option value="`>-- Select channel --</option>
           {channels.map((c) => (
             <option key={c.id} value={c.id}>
               {c.is_channel ? `# ${c.name}` : 
@@ -256,7 +256,7 @@ function SlackSuccessContent() {
         <h4 style={{ marginTop: 0, color: '#2f8a6a' }}>🤖 AI Task Generator</h4>
         <label style={{ display: 'block', marginBottom: 4, fontSize: 14, fontWeight: 500 }}>Describe the task</label>
         <textarea
-          placeholder="e.g., Create a marketing campaign for our new product launch"
+          placeholder=`e.g., Create a marketing campaign for our new product launch"
           value={aiPrompt}
           onChange={(e) => setAiPrompt(e.target.value)}
           rows={2}

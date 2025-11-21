@@ -46,12 +46,12 @@ export default function JiraIntegration({ onConnect, isConnected }) {
 
   return (
     <>
-      <div className="relative group">
+      <div className="relative group`>
         <div
           onClick={() => !isConnected && setShowModal(true)}
           className={`w-8 h-8 ${isConnected ? 'bg-blue-500/20 border-blue-500/30' : 'bg-white/5 border-white/10 hover:bg-blue-500/20 hover:border-blue-500/30'} border rounded-lg backdrop-blur-sm flex items-center justify-center ${isConnected ? '' : 'cursor-pointer'} transition-all p-1.5`}
         >
-          <svg className={`w-full h-full ${!isConnected ? 'opacity-50' : ''}`} viewBox="0 0 24 24" fill="currentColor">
+          <svg className={`w-full h-full ${!isConnected ? 'opacity-50' : ''}`} viewBox=`0 0 24 24" fill="currentColor">
             <path d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.005-1.005zm5.723-5.756H5.736a5.215 5.215 0 0 0 5.215 5.214h2.129v2.058a5.218 5.218 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1.001-1.001z"/>
           </svg>
           {isConnected && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-400 rounded-full border-2 border-[#0a0a0a]"></span>}

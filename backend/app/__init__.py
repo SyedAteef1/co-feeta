@@ -14,6 +14,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Suppress werkzeug SSL handshake errors
+logging.getLogger('werkzeug').setLevel(logging.WARNING)
+
 
 def create_app():
     """Application factory pattern"""
@@ -42,7 +45,13 @@ def create_app():
     # Setup CORS
     CORS(app, 
          supports_credentials=True,
-         origins=[Config.FRONTEND_URL, 'https://www.feeta-ai.com', 'https://feeta-ai.com'],
+         origins=[
+             Config.FRONTEND_URL,
+             'http://localhost:3000',
+             'https://localhost:3000',
+             'https://www.feeta-ai.com',
+             'https://feeta-ai.com'
+         ],
          allow_headers=['Content-Type', 'Authorization'])
     
     logger.info(f"✅ CORS enabled for: {Config.FRONTEND_URL}")
@@ -87,15 +96,18 @@ def create_app():
     start_followup_scheduler()
     logger.info("✅ Task follow-up scheduler started (every 10 minutes)")
     
-    # Simple request logging
+    # Simple request logging (filter out SSL noise)
     @app.before_request
     def log_request_info():
         from flask import request
-        logger.info(f"{request.method} {request.path}")
+        # Only log valid HTTP requests
+        if request.method in ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']:
+            logger.info(f"{request.method} {request.path}")
     
     @app.after_request
     def log_response_info(response):
-        logger.info(f"Response: {response.status_code}")
+        if response.status_code != 400:  # Don't log SSL handshake errors
+            logger.info(f"Response: {response.status_code}")
         return response
     
     # Health check endpoint

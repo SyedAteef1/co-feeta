@@ -148,13 +148,13 @@ export default function SlackUsersPage() {
 
               <div className="flex items-center gap-4">
                 {user.statusChecked && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2`>
                     <div
                       className={`w-3 h-3 rounded-full ${
                         user.available ? 'bg-green-500' : 'bg-gray-500'
                       }`}
                     />
-                    <span className="text-sm">
+                    <span className=`text-sm">
                       {user.available ? 'Active' : user.status || 'Offline'}
                     </span>
                   </div>

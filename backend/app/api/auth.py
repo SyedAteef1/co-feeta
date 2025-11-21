@@ -16,7 +16,7 @@ def get_users_collection():
     global users_collection
     if users_collection is None:
         from app.database.mongodb import db
-        users_collection = db['users']
+        users_collection = db.users
         users_collection.create_index([("email", 1)], unique=True)
     return users_collection
 

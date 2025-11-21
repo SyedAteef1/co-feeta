@@ -117,7 +117,7 @@ export default function SlackMonitor() {
           blockers: [],
           progress_indicators: [],
           action_items: [],
-          sentiment: "neutral"
+          sentiment: "neutral`
         });
         setLastUpdated(new Date());
         setLoadingSummary(false);
@@ -141,7 +141,7 @@ export default function SlackMonitor() {
       setChannelSummary(summaryData.summary);
       setLastUpdated(new Date());
     } catch (error) {
-      console.error("Error fetching summary:", error);
+      console.error(`Error fetching summary:", error);
       setChannelSummary({
         overall_status: "Error loading summary",
         error: error.message
@@ -253,7 +253,7 @@ export default function SlackMonitor() {
                 <div className="text-lg text-gray-100">{channelSummary.overall_status}</div>
                 {channelSummary.sentiment && (
                   <div className="mt-3 flex items-center gap-2">
-                    <span className="text-sm text-gray-400">Sentiment:</span>
+                    <span className="text-sm text-gray-400`>Sentiment:</span>
                     <span className={`text-sm font-medium px-3 py-1 rounded-full ${
                       channelSummary.sentiment === 'positive' ? 'bg-green-500/20 text-green-400' :
                       channelSummary.sentiment === 'negative' ? 'bg-red-500/20 text-red-400' :
@@ -267,7 +267,7 @@ export default function SlackMonitor() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className=`grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Key Updates */}
                 {channelSummary.key_updates && channelSummary.key_updates.length > 0 && (
                   <div className="p-4 bg-[#343541] rounded-lg">

@@ -114,7 +114,7 @@ export default function Dashboard() {
                 <select 
                   value={selectedChannel} 
                   onChange={(e) => setSelectedChannel(e.target.value)}
-                  className="w-full mb-2 px-2 py-1 text-sm border rounded"
+                  className="w-full mb-2 px-2 py-1 text-sm border rounded`
                 >
                   {channels.map(ch => (
                     <option key={ch.id} value={ch.id}>{ch.name}</option>
@@ -130,7 +130,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="text-sm">
+          <div className=`text-sm">
             <div className="font-semibold text-gray-700 mb-2">QUICK STATS</div>
             <div className="space-y-2">
               <div className="flex justify-between"><span className="text-gray-600">Active Projects</span><span className="font-semibold">8</span></div>

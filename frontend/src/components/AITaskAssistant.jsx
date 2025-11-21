@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 function SubtaskCard({ subtask, index }) {
   const [showAssign, setShowAssign] = useState(false);
   const [channels, setChannels] = useState([]);
-  const [selectedChannel, setSelectedChannel] = useState("");
+  const [selectedChannel, setSelectedChannel] = useState("`);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
@@ -23,7 +23,7 @@ function SubtaskCard({ subtask, index }) {
         setChannels(data.channels);
       }
     } catch (err) {
-      console.error("Error fetching channels:", err);
+      console.error(`Error fetching channels:`, err);
     }
   };
 
@@ -35,7 +35,7 @@ function SubtaskCard({ subtask, index }) {
     const message = `📝 *New Task Assignment*\n\n*Task:* ${subtask.title || subtask.task}\n*Description:* ${subtask.description}\n*Role:* ${subtask.role || subtask.assigned_to}\n*Deadline:* ${subtask.deadline}\n*Output:* ${subtask.output}`;
     
     try {
-      await fetch("${API_BASE_URL}/api/send_message", {
+      await fetch(`${API_BASE_URL}/api/send_message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -131,7 +131,7 @@ export default function AITaskAssistant({ repos, githubToken }) {
   
   // New state for conversation history and global assignment
   const [conversationHistory, setConversationHistory] = useState([]);
-  const [selectedChannel, setSelectedChannel] = useState("");
+  const [selectedChannel, setSelectedChannel] = useState("`);
   const [channels, setChannels] = useState([]);
   const [sendingAll, setSendingAll] = useState(false);
 
@@ -152,7 +152,7 @@ export default function AITaskAssistant({ repos, githubToken }) {
             setChannels(data.channels);
           }
         } catch (err) {
-          console.error("Error fetching channels:", err);
+          console.error(`Error fetching channels:`, err);
         }
       }
     };
@@ -170,7 +170,7 @@ export default function AITaskAssistant({ repos, githubToken }) {
         setConversationHistory(data.conversations || []);
         addLog(`📜 Loaded ${data.conversations?.length || 0} previous conversations`);
       } catch (err) {
-        console.error("Error fetching history:", err);
+        console.error(`Error fetching history:`, err);
       }
     };
     
@@ -193,9 +193,9 @@ export default function AITaskAssistant({ repos, githubToken }) {
       // Send summary message first
       const summaryMessage = `🚀 *New Task Breakdown*\n\n*Original Prompt:* ${originalPrompt}\n\n*Main Goal:* ${plan.goal}\n*Total Subtasks:* ${plan.subtasks.length}\n\n---\n`;
       
-      await fetch("${API_BASE_URL}/api/send_message", {
+      await fetch(`${API_BASE_URL}/api/send_message", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json` },
         body: JSON.stringify({
           user_id: slackUserId,
           channel: selectedChannel,
@@ -208,9 +208,9 @@ export default function AITaskAssistant({ repos, githubToken }) {
         const subtask = plan.subtasks[i];
         const message = `📝 *Task ${i + 1}/${plan.subtasks.length}: ${subtask.title || subtask.task}*\n\n*Description:* ${subtask.description}\n*Role:* ${subtask.role || subtask.assigned_to}\n*Deadline:* ${subtask.deadline}\n*Expected Output:* ${subtask.output}\n*Clarity Score:* ${subtask.clarity_score}%`;
         
-        await fetch("${API_BASE_URL}/api/send_message", {
+        await fetch(`${API_BASE_URL}/api/send_message", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json` },
           body: JSON.stringify({
             user_id: slackUserId,
             channel: selectedChannel,
@@ -226,7 +226,7 @@ export default function AITaskAssistant({ repos, githubToken }) {
       
       addLog(`✅ All tasks sent successfully to Slack!`);
     } catch (err) {
-      console.error("Error sending to Slack:", err);
+      console.error(`Error sending to Slack:`, err);
       addLog(`❌ Error sending tasks: ${err.message}`);
     }
     
@@ -235,7 +235,7 @@ export default function AITaskAssistant({ repos, githubToken }) {
 
   const continueWithNewPrompt = () => {
     // Keep session ID, reset task and plan for new prompt
-    setTask("");
+    setTask(`");
     setPlan(null);
     setQuestions([]);
     setAnswers({});
@@ -245,7 +245,7 @@ export default function AITaskAssistant({ repos, githubToken }) {
 
   const analyzeTask = async () => {
     addLog("🚀 Starting task analysis with repository context...");
-    setStatus("analyzing");
+    setStatus("analyzing`);
     
     try {
       // Support both single repo (legacy) and multiple repos
@@ -270,9 +270,9 @@ export default function AITaskAssistant({ repos, githubToken }) {
         addLog(`🔄 Continuing session: ${sessionId}`);
       }
       
-      const res = await fetch("${API_BASE_URL}/api/analyze", {
+      const res = await fetch(`${API_BASE_URL}/api/analyze", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json` },
         body: JSON.stringify({ 
           task,
           session_id: sessionId,
@@ -287,24 +287,24 @@ export default function AITaskAssistant({ repos, githubToken }) {
       
       setSessionId(data.session_id);
       
-      if (data.status === "needs_context") {
+      if (data.status === `needs_context`) {
         addLog(`🔍 AI needs to search codebase: ${data.search_queries?.length} queries`);
-        setStatus("needs_context");
+        setStatus(`needs_context");
         setSearchQueries(data.search_queries || []);
         addLog("🔎 Searching repository for relevant code...");
         setTimeout(() => generatePlan(data.session_id), 1000);
       } else if (data.status === "clear") {
         addLog("✅ Task is clear, generating plan...");
-        setStatus("clear");
+        setStatus("clear`);
         generatePlan(data.session_id);
       } else {
         addLog(`❓ Task needs clarification (${data.questions?.length} questions)`);
-        setStatus("ambiguous");
+        setStatus(`ambiguous`);
         setQuestions(data.questions || []);
       }
     } catch (err) {
       addLog(`❌ Error: ${err.message}`);
-      setStatus("error");
+      setStatus(`error");
     }
   };
 
@@ -315,11 +315,11 @@ export default function AITaskAssistant({ repos, githubToken }) {
     try {
       const token = localStorage.getItem('token');
       addLog("📡 Calling /api/generate_plan endpoint");
-      const res = await fetch("${API_BASE_URL}/api/generate_plan", {
+      const res = await fetch(`${API_BASE_URL}/api/generate_plan`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          "Authorization`: `Bearer ${token}`
         },
         body: JSON.stringify({ task, session_id: sid, answers }),
       });
@@ -329,10 +329,10 @@ export default function AITaskAssistant({ repos, githubToken }) {
       addLog(`📦 Plan generated with ${data.subtasks?.length} subtasks`);
       
       setPlan(data);
-      setStatus("complete");
+      setStatus(`complete`);
     } catch (err) {
       addLog(`❌ Error: ${err.message}`);
-      setStatus("error");
+      setStatus(`error");
     }
   };
 
@@ -406,9 +406,9 @@ export default function AITaskAssistant({ repos, githubToken }) {
                   )}
                 </div>
                 <input
-                  type="text"
+                  type="text`
                   onChange={(e) => setAnswers({ ...answers, [`q${i}`]: e.target.value })}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#4C3BCF]"
+                  className=`w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#4C3BCF]"
                   placeholder="Your answer..."
                 />
               </div>
@@ -492,11 +492,11 @@ export default function AITaskAssistant({ repos, githubToken }) {
                 disabled={!selectedChannel || sendingAll}
                 className="px-6 py-2 bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {sendingAll ? "Sending..." : `Send All ${plan.subtasks?.length} Tasks`}
+                {sendingAll ? "Sending...` : `Send All ${plan.subtasks?.length} Tasks`}
               </button>
             </div>
             {selectedChannel && (
-              <div className="mt-2 text-xs text-gray-500">
+              <div className=`mt-2 text-xs text-gray-500">
                 📝 Will send original prompt + {plan.subtasks?.length} detailed tasks to selected channel
               </div>
             )}

@@ -17,12 +17,14 @@ if __name__ == "__main__":
     is_production = os.environ.get("BASE_URL", "").startswith("https://co-feeta.onrender.com")
     
     if is_production:
+        # Production: No SSL (Render handles it)
         app.run(
             host="0.0.0.0",
             port=port,
             debug=False
         )
     else:
+        # Development: Use SSL for Slack
         app.run(
             host="0.0.0.0",
             port=port,

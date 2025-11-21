@@ -299,7 +299,7 @@ export default function DashPage() {
 
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
-    setInput("");
+    setInput("`);
     setIsLoading(true);
 
     // Save user message to database
@@ -319,7 +319,7 @@ export default function DashPage() {
             content: input
           })
         });
-        console.log("💾 User message saved to database");
+        console.log(`💾 User message saved to database");
       } catch (error) {
         console.error("Error saving user message:", error);
       }
@@ -328,7 +328,7 @@ export default function DashPage() {
     try {
       const [owner, repoName] = selectedProject.repo?.full_name?.split('/') || [];
 
-      const res = await fetch("${API_BASE_URL}/api/analyze", {
+      const res = await fetch(`${API_BASE_URL}/api/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -357,11 +357,11 @@ export default function DashPage() {
 
       if (data.status === "clear" || data.status === "needs_context") {
         const token = localStorage.getItem('token');
-        const planRes = await fetch("${API_BASE_URL}/api/generate_plan", {
+        const planRes = await fetch(`${API_BASE_URL}/api/generate_plan`, {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
+            "Authorization`: `Bearer ${token}`
           },
           body: JSON.stringify({
             task: input,
@@ -373,11 +373,11 @@ export default function DashPage() {
         const planData = await planRes.json();
         
         if (planRes.ok && !planData.error) {
-          aiResponse.content = `I've analyzed your request: "${input}"\n\nI've created an implementation plan with ${planData.subtasks?.length} subtasks.`;
+          aiResponse.content = `I've analyzed your request: `${input}`\n\nI've created an implementation plan with ${planData.subtasks?.length} subtasks.`;
           aiResponse.plan = planData;
         }
-      } else if (data.status === "ambiguous") {
-        aiResponse.content = "I need some clarification before proceeding:";
+      } else if (data.status === `ambiguous") {
+        aiResponse.content = "I need some clarification before proceeding:`;
         aiResponse.questions = data.questions;
         aiResponse.needsAnswers = true;
         aiResponse.originalTask = input;
@@ -404,10 +404,10 @@ export default function DashPage() {
               data: aiResponse.plan ? { plan: aiResponse.plan } : { questions: aiResponse.questions }
             })
           });
-          console.log("💾 AI response saved to database");
+          console.log(`💾 AI response saved to database");
           await loadProjects(); // Refresh to update message count
         } catch (error) {
-          console.error("Error saving AI response:", error);
+          console.error("Error saving AI response:`, error);
         }
       }
 
@@ -432,11 +432,11 @@ export default function DashPage() {
   };
 
   return (
-    <div className="flex h-screen bg-[#1C1C1C] text-white overflow-hidden">
+    <div className=`flex h-screen bg-[#1C1C1C] text-white overflow-hidden">
       {/* Icon Navigation Sidebar */}
       <div className="w-16 bg-[#141414] border-r border-[#2A2A2A] flex flex-col items-center py-4 gap-2">
         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center mb-4 shadow-lg">
-          <Image src="/Images/F2.png" alt="Logo" width={28} height={28} className="rounded-lg" />
+          <Image src="/Images/F2.png" alt="Logo" width={28} height={28} className="rounded-lg` />
         </div>
 
         <button 
@@ -445,8 +445,8 @@ export default function DashPage() {
             selectedNav === 'grid' ? 'bg-[#2A2A2A] text-white' : 'text-gray-500 hover:text-gray-300 hover:bg-[#1C1C1C]'
           }`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+          <svg className=`w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z` />
           </svg>
         </button>
 
@@ -456,8 +456,8 @@ export default function DashPage() {
             selectedNav === 'projects' ? 'bg-[#2A2A2A] text-white shadow-lg' : 'text-gray-500 hover:text-gray-300 hover:bg-[#1C1C1C]'
           }`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <svg className=`w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z` />
           </svg>
         </button>
 
@@ -467,8 +467,8 @@ export default function DashPage() {
             selectedNav === 'time' ? 'bg-[#2A2A2A] text-white' : 'text-gray-500 hover:text-gray-300 hover:bg-[#1C1C1C]'
           }`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg className=`w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z` />
           </svg>
         </button>
 
@@ -478,8 +478,8 @@ export default function DashPage() {
             selectedNav === 'chat' ? 'bg-[#2A2A2A] text-white' : 'text-gray-500 hover:text-gray-300 hover:bg-[#1C1C1C]'
           }`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          <svg className=`w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z` />
           </svg>
         </button>
 
@@ -489,8 +489,8 @@ export default function DashPage() {
             selectedNav === 'archive' ? 'bg-[#2A2A2A] text-white' : 'text-gray-500 hover:text-gray-300 hover:bg-[#1C1C1C]'
           }`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+          <svg className=`w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4` />
           </svg>
         </button>
 
@@ -500,12 +500,12 @@ export default function DashPage() {
             selectedNav === 'bell' ? 'bg-[#2A2A2A] text-white' : 'text-gray-500 hover:text-gray-300 hover:bg-[#1C1C1C]'
           }`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className=`w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
           </svg>
         </button>
 
-        <div className="flex-1"></div>
+        <div className="flex-1`></div>
 
         <button 
           onClick={() => setSelectedNav('settings')}
@@ -513,9 +513,9 @@ export default function DashPage() {
             selectedNav === 'settings' ? 'bg-[#2A2A2A] text-white' : 'text-gray-500 hover:text-gray-300 hover:bg-[#1C1C1C]'
           }`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className=`w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z` />
           </svg>
         </button>
 
@@ -525,7 +525,7 @@ export default function DashPage() {
             selectedNav === 'help' ? 'bg-[#2A2A2A] text-white' : 'text-gray-500 hover:text-gray-300 hover:bg-[#1C1C1C]'
           }`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className=`w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </button>
@@ -539,7 +539,7 @@ export default function DashPage() {
           </svg>
         </button>
 
-        <div className="w-full h-px bg-[#2A2A2A] my-2"></div>
+        <div className="w-full h-px bg-[#2A2A2A] my-2`></div>
 
         {/* Login/Logout Section */}
         {user ? (
@@ -551,7 +551,7 @@ export default function DashPage() {
                 selectedNav === 'profile' ? 'bg-[#2A2A2A] text-white' : 'text-gray-500 hover:text-gray-300 hover:bg-[#1C1C1C]'
               }`}
             >
-              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold">
+              <div className=`w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold">
                 {user.name?.charAt(0) || 'U'}
               </div>
             </button>
@@ -575,7 +575,7 @@ export default function DashPage() {
             title="Login"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1` />
             </svg>
           </button>
         )}
@@ -584,9 +584,9 @@ export default function DashPage() {
       {/* Projects Sidebar */}
       <div className={`${showSidebar ? 'w-72' : 'w-0'} transition-all duration-300 bg-[#171717] border-r border-[#2A2A2A] overflow-hidden flex flex-col`}>
         {/* Sidebar Header */}
-        <div className="p-4 border-b border-[#2A2A2A]">
+        <div className=`p-4 border-b border-[#2A2A2A]">
           {/* Team/Chat Toggle */}
-          <div className="flex gap-2 mb-6">
+          <div className="flex gap-2 mb-6`>
             <button 
               onClick={() => setViewMode('team')}
               className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -610,7 +610,7 @@ export default function DashPage() {
           </div>
 
           {/* Search */}
-          <div className="relative mb-4">
+          <div className=`relative mb-4">
             <input
               type="text"
               placeholder="Search..."
@@ -649,7 +649,7 @@ export default function DashPage() {
 
             <div className="space-y-1">
               {projects.length === 0 ? (
-                <div className="px-3 py-4 text-xs text-gray-500 text-center">
+                <div className="px-3 py-4 text-xs text-gray-500 text-center`>
                   No projects yet. Create one to get started!
                 </div>
               ) : (
@@ -663,7 +663,7 @@ export default function DashPage() {
                         : 'text-gray-400 hover:bg-[#202020] hover:text-gray-300'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className=`flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm">{project.name}</span>
                       </div>
@@ -845,13 +845,13 @@ export default function DashPage() {
                 {tasks.inProgress.map((task) => (
                   <div key={task.id} className="bg-[#252525] rounded-2xl p-4 border border-[#3A3A3A] hover:border-[#4A4A4A] hover:shadow-lg transition-all cursor-pointer">
                     <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap`>
                         {task.priority && (
                           <span className={`text-xs px-2.5 py-1 rounded-lg border font-medium ${getPriorityColor(task.priority)}`}>
                             {task.priority}
                           </span>
                         )}
-                        <span className="text-xs text-gray-500 flex items-center gap-1.5 bg-[#2A2A2A] px-2 py-1 rounded-lg">
+                        <span className=`text-xs text-gray-500 flex items-center gap-1.5 bg-[#2A2A2A] px-2 py-1 rounded-lg">
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
@@ -876,14 +876,14 @@ export default function DashPage() {
                         </div>
                         <div className="h-2 bg-[#2A2A2A] rounded-full overflow-hidden">
                           <div 
-                            className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all"
+                            className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all`
                             style={{ width: `${task.progress}%` }}
                           ></div>
                         </div>
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between">
+                    <div className=`flex items-center justify-between">
                       <div className="flex items-center -space-x-2">
                         {task.assignees.map((avatar, idx) => (
                           <div key={idx} className="w-7 h-7 rounded-full border-2 border-[#252525] overflow-hidden bg-purple-600 hover:scale-110 transition-transform">
@@ -937,13 +937,13 @@ export default function DashPage() {
                 {tasks.inReview.map((task) => (
                   <div key={task.id} className="bg-[#252525] rounded-2xl p-4 border border-[#3A3A3A] hover:border-[#4A4A4A] hover:shadow-lg transition-all cursor-pointer">
                     <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap`>
                         {task.priority && (
                           <span className={`text-xs px-2.5 py-1 rounded-lg border font-medium ${getPriorityColor(task.priority)}`}>
                             {task.priority}
                           </span>
                         )}
-                        <span className="text-xs text-gray-500 flex items-center gap-1.5 bg-[#2A2A2A] px-2 py-1 rounded-lg">
+                        <span className=`text-xs text-gray-500 flex items-center gap-1.5 bg-[#2A2A2A] px-2 py-1 rounded-lg">
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
@@ -968,14 +968,14 @@ export default function DashPage() {
                         </div>
                         <div className="h-2 bg-[#2A2A2A] rounded-full overflow-hidden">
                           <div 
-                            className="h-full bg-gradient-to-r from-yellow-500 to-orange-400 rounded-full transition-all"
+                            className="h-full bg-gradient-to-r from-yellow-500 to-orange-400 rounded-full transition-all`
                             style={{ width: `${task.progress}%` }}
                           ></div>
                         </div>
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between">
+                    <div className=`flex items-center justify-between">
                       <div className="flex items-center -space-x-2">
                         {task.assignees.map((avatar, idx) => (
                           <div key={idx} className="w-7 h-7 rounded-full border-2 border-[#252525] overflow-hidden bg-purple-600 hover:scale-110 transition-transform">
@@ -1028,14 +1028,14 @@ export default function DashPage() {
                   
                   {repos.length === 0 ? (
                     <div className="text-center">
-                      <p className="text-gray-400 mb-4">No repositories found. Please connect GitHub first.</p>
+                      <p className="text-gray-400 mb-4`>No repositories found. Please connect GitHub first.</p>
                       {!githubConnected && (
                         <button
                           onClick={() => {
                             const token = localStorage.getItem('token');
                             window.location.href = `${API_BASE_URL}/github/install?token=${token}`;
                           }}
-                          className="px-6 py-3 bg-[#2A2A2A] hover:bg-[#333333] rounded-lg transition-colors"
+                          className=`px-6 py-3 bg-[#2A2A2A] hover:bg-[#333333] rounded-lg transition-colors"
                         >
                           Connect GitHub
                         </button>
@@ -1084,16 +1084,16 @@ export default function DashPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="max-w-4xl mx-auto py-8 px-4">
+                    <div className="max-w-4xl mx-auto py-8 px-4`>
                       {messages.map((msg, i) => (
                         <div key={i} className={`mb-8 ${msg.role === 'user' ? '' : 'bg-[#2A2A2A] -mx-4 px-4 py-6'}`}>
-                          <div className="max-w-3xl mx-auto">
-                            <div className="flex gap-4">
+                          <div className=`max-w-3xl mx-auto">
+                            <div className="flex gap-4`>
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                                 msg.role === 'user' ? 'bg-purple-600' : 'bg-[#10A37F]'
                               }`}>
                                 {msg.role === 'user' ? (
-                                  <span className="text-sm font-bold">{user?.name?.charAt(0) || 'U'}</span>
+                                  <span className=`text-sm font-bold">{user?.name?.charAt(0) || 'U'}</span>
                                 ) : (
                                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                     <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
@@ -1113,7 +1113,7 @@ export default function DashPage() {
                                         <p className="text-sm text-gray-400">{msg.plan.goal}</p>
                                       </div>
                                       {msg.plan.subtasks && msg.plan.subtasks.length > 0 && (
-                                        <div className="text-xs text-right space-y-1">
+                                        <div className="text-xs text-right space-y-1`>
                                           {(() => {
                                             const totalHours = msg.plan.subtasks.reduce((sum, t) => {
                                               const hours = parseFloat(t.estimated_hours) || 0;
@@ -1136,7 +1136,7 @@ export default function DashPage() {
                                             
                                             return (
                                               <>
-                                                <div className="text-blue-400 font-semibold">⏱️ Total: {totalTimeline}</div>
+                                                <div className=`text-blue-400 font-semibold">⏱️ Total: {totalTimeline}</div>
                                                 {totalHours > 0 && <div className="text-yellow-400">⏰ {Math.round(totalHours)}h</div>}
                                                 {earliestDeadline && (
                                                   <div className="text-green-400">📅 Start: {earliestDeadline.toLocaleDateString()}</div>

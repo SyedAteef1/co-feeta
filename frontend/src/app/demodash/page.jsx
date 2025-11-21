@@ -193,7 +193,7 @@ function TasksPage({ user }) {
     setIsLoading(true);
     
     try {
-      console.log('📡 Fetching tasks from API: ${API_BASE_URL}/api/tasks');
+      console.log(`📡 Fetching tasks from API: ${API_BASE_URL}/api/tasks`);
       
       const response = await fetch(`${API_BASE_URL}/api/tasks`, {
         headers: { 
@@ -2195,7 +2195,7 @@ export default function DemoDash() {
         repositories = [{ owner, repo: repoName, type: 'unknown' }];
       }
       
-      const res = await fetch("${API_BASE_URL}/api/analyze", {
+      const res = await fetch(`${API_BASE_URL}/api/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2223,7 +2223,7 @@ export default function DemoDash() {
 
       if (data.status === "clear" || data.status === "needs_context") {
         const token = localStorage.getItem('token');
-        const planRes = await fetch("${API_BASE_URL}/api/generate_plan", {
+        const planRes = await fetch(`${API_BASE_URL}/api/generate_plan`, {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
@@ -2343,7 +2343,7 @@ export default function DemoDash() {
       };
 
       const token = localStorage.getItem('token');
-      const planRes = await fetch("${API_BASE_URL}/api/generate_plan", {
+      const planRes = await fetch(`${API_BASE_URL}/api/generate_plan`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -3030,11 +3030,6 @@ export default function DemoDash() {
         {/* Header */}
         <div 
           className={`bg-[#0a0a0a]/40 backdrop-blur-2xl border-b border-[#1f1f1f]/30 px-8 py-5 flex items-center justify-between z-20 shadow-lg shadow-black/10 transition-all duration-300 ${activePage === 'projects' ? '' : 'sticky top-0'}`}
-          style={{ 
-            marginLeft: isProjectsPanelOpen 
-              ? (sidebarCollapsed ? 'calc(5rem + 14rem)' : 'calc(15rem + 14rem)') 
-              : '0'
-          }}
         >
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl shadow-lg shadow-black/5">

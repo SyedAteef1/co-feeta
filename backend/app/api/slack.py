@@ -531,6 +531,82 @@ def slack_events():
             event = data.get("event", {})
             event_type = event.get("type")
             
+            # Handle regular messages (for task tracking)
+            if event_type == "message":
+                logger.info("💬 Regular message received in Slack")
+                
+                team_id = data.get("team_id")
+                if not team_id:
+                    return jsonify({"ok": True})
+                
+                collection = get_tokens_collection()
+                token_info = collection.find_one({"team_id": team_id})
+                
+                if not token_info:
+                    return jsonify({"ok": True})
+                
+                user_id_in_db = token_info.get("user_id")
+                slack_user_id = event.get("user")
+                channel = event.get("channel")
+                text = event.get("text", "")
+                
+                if event.get("bot_id") or not slack_user_id:
+                    return jsonify({"ok": True})
+                
+                completion_keywords = [
+                    "completed", "done", "finished", "complete", 
+                    "task done", "task completed", "task finished",
+                    "wrapped up", "closed", "resolved"
+                ]
+                
+                text_lower = text.lower()
+                is_completion_message = any(keyword in text_lower for keyword in completion_keywords)
+                
+                if is_completion_message:
+                    logger.info(f"🎯 Completion message detected: {text[:100]}...")
+                    
+                    slack_token = token_info.get("bot_token") or token_info.get("access_token")
+                    try:
+                        user_info_url = "https://slack.com/api/users.info"
+                        user_info_headers = {"Authorization": f"Bearer {slack_token}"}
+                        user_info_params = {"user": slack_user_id}
+                        user_info_resp = requests.get(user_info_url, headers=user_info_headers, params=user_info_params, timeout=5)
+                        user_info = user_info_resp.json()
+                        
+                        slack_user_name = "Unknown"
+                        if user_info.get("ok"):
+                            slack_user_name = user_info.get("user", {}).get("real_name") or user_info.get("user", {}).get("name", "Unknown")
+                        
+                        logger.info(f"👤 Message from: {slack_user_name}")
+                        
+                        from app.database.mongodb import find_task_by_keywords, update_task_from_slack
+                        
+                        matching_task = find_task_by_keywords(user_id_in_db, text, slack_user_name)
+                        
+                        if matching_task:
+                            task_id = str(matching_task['_id'])
+                            task_title = matching_task.get('title', 'Unknown')
+                            
+                            logger.info(f"✅ Found matching task: {task_title}")
+                            
+                            success = update_task_from_slack(
+                                task_id=task_id,
+                                status='completed',
+                                slack_message=text,
+                                updated_by=slack_user_name
+                            )
+                            
+                            if success:
+                                logger.info(f"🎉 Task '{task_title}' auto-updated to completed!")
+                                
+                                confirmation_msg = f"✅ Great! I've marked the task *\"{task_title}\"* as completed. Nice work, <@{slack_user_id}>!"
+                                send_message_to_channel(slack_token, channel, confirmation_msg, event.get("ts"))
+                            
+                    except Exception as e:
+                        logger.error(f"❌ Error processing completion message: {str(e)}")
+                
+                return jsonify({"ok": True})
+            
             # Handle app_mentions (when Feeta is tagged)
             if event_type == "app_mentions":
                 logger.info("🔔 Feeta mentioned in Slack!")
@@ -1750,6 +1826,38 @@ def check_user_status():
     except Exception as e:
         logger.error(f"Error checking user status: {str(e)}")
         return jsonify({"available": False, "reason": str(e)})
+
+@slack_bp.route("/api/slack-tracked-tasks", methods=["GET"])
+def get_slack_tracked_tasks_api():
+    """Get recently auto-tracked tasks from Slack"""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"error": "No authorization provided"}), 401
+    
+    try:
+        token = auth_header.replace('Bearer ', '')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload['user_id']
+        
+        from app.database.mongodb import get_slack_tracked_tasks
+        
+        limit = request.args.get('limit', 10, type=int)
+        tasks = get_slack_tracked_tasks(user_id, limit)
+        
+        return jsonify({
+            "ok": True,
+            "tasks": tasks,
+            "count": len(tasks)
+        })
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+    except Exception as e:
+        logger.error(f"❌ Error getting slack tracked tasks: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 
 @slack_bp.route("/api/test-slack-message", methods=["POST"])
 def test_slack_message():

@@ -1,6 +1,6 @@
 "use client";
 import { API_BASE_URL } from '@/config/api';
-import { useState, useEffect } from "react";
+import { useState, useEffect } from "react`;
 
 export default function SlackConnectButton() {
   const [slackConnected, setSlackConnected] = useState(false);
@@ -67,7 +67,7 @@ export default function SlackConnectButton() {
   const handleConnect = () => {
     const token = localStorage.getItem('token');
     if (!token) {
-      alert("Please login first");
+      alert(`Please login first`);
       return;
     }
     window.location.href = `${API_BASE_URL}/slack/install?token=${token}`;
@@ -76,7 +76,7 @@ export default function SlackConnectButton() {
   if (checking) return null;
 
   return slackConnected ? (
-    <span className="text-sm text-green-400">✓ Slack</span>
+    <span className=`text-sm text-green-400">✓ Slack</span>
   ) : (
     <button
       onClick={handleConnect}

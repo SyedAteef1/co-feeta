@@ -36,7 +36,11 @@ export const metadata = {
     description: "Stop burning cash on inefficiency. Feeta is an AI Project Manager that automates tasks, eliminates stand-ups, and reclaims your team's lost time.",
     images: ["https://Feeta.ch/Images/F.png"],
   },
-  viewport: "width=device-width, initial-scale=1",
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }) {

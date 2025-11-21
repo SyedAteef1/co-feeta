@@ -93,7 +93,7 @@ export default function GeminiTest() {
             </button>
             <button
               onClick={testPing}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm`
             >
               Test /api/ping
             </button>
@@ -114,7 +114,7 @@ export default function GeminiTest() {
           </div>
         )}
         
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className=`bg-white rounded-lg shadow p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold">Chat Session</h2>
             <button
@@ -127,7 +127,7 @@ export default function GeminiTest() {
           
           <div className="border rounded-lg h-96 overflow-y-auto p-4 mb-4 bg-gray-50">
             {chatHistory.length === 0 ? (
-              <p className="text-gray-500 text-center">Start a conversation...</p>
+              <p className="text-gray-500 text-center`>Start a conversation...</p>
             ) : (
               chatHistory.map((message, index) => (
                 <div key={index} className={`mb-4 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
@@ -136,7 +136,7 @@ export default function GeminiTest() {
                       ? 'bg-blue-600 text-white' 
                       : 'bg-white border shadow-sm'
                   }`}>
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <p className=`text-sm whitespace-pre-wrap">{message.content}</p>
                   </div>
                 </div>
               ))

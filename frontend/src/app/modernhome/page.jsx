@@ -19,10 +19,10 @@
           onClick={() => setIsOpen(!isOpen)}
           className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-900/10 transition-colors"
         >
-          <span className="text-lg font-medium text-white">{question}</span>
+          <span className="text-lg font-medium text-white`>{question}</span>
           <svg
             className={`w-5 h-5 text-white transition-transform duration-300 flex-shrink-0 ml-4 ${isOpen ? 'rotate-180' : ''}`}
-            fill="none"
+            fill=none"
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
@@ -681,13 +681,13 @@
 
                   {/* Task List - Matching Reference Image */}
                   {showOutput && (
-                    <div className="space-y-2 max-h-64 overflow-y-auto overflow-x-hidden scrollbar-hide">
+                    <div className="space-y-2 max-h-64 overflow-y-auto overflow-x-hidden scrollbar-hide`>
                       {useCases[currentCase].output.map((item, idx) => (
                         <div 
                           key={idx} 
                           className={`transition-all duration-500 ${idx < visibleItems ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
                         >
-                          <div className="bg-gray-800/40 rounded-xl px-3 py-2.5 border border-gray-700/30 flex items-center justify-between group hover:bg-gray-800/60 transition-colors">
+                          <div className=bg-gray-800/40 rounded-xl px-3 py-2.5 border border-gray-700/30 flex items-center justify-between group hover:bg-gray-800/60 transition-colors">
                             <div className="flex items-center gap-3 flex-1">
                               <div className="w-7 h-7 bg-gray-700/50 rounded-lg flex items-center justify-center flex-shrink-0">
                                 <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -884,7 +884,7 @@
   Feeta takes high-level objectives and breaks them into actionable sub-tasks—assigning each to the right person based on skill, workload, and timing. Progress syncs automatically from Slack, Jira, and other tools, keeping everyone aligned without micromanagement.
               </p>
 
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3`>
                 <button 
                   onClick={() => setActiveFeature(activeFeature === 'auto-assign' ? null : 'auto-assign')}
                   className={`border px-5 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -922,7 +922,7 @@
 
         
         {/* The Feeta Advantage Section */}
-        <section ref={guidanceRef} className="relative z-10 mt-16 sm:mt-32 px-4 sm:px-8">
+        <section ref={guidanceRef} className=relative z-10 mt-16 sm:mt-32 px-4 sm:px-8">
           <div className="max-w-6xl mx-auto flex flex-col lg:grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
             {/* Left Side - Content */}
             <div className="guidance-content order-1 lg:order-1">
@@ -965,12 +965,12 @@
                   </div>
 
                   {/* Chat Interface */}
-                  <div className="p-5 space-y-3 max-h-64 overflow-y-auto scrollbar-hide">
+                  <div className="p-5 space-y-3 max-h-64 overflow-y-auto scrollbar-hide`>
                     {/* Developer Question */}
                     <div className={`bg-red-500/10 rounded-2xl p-3 border border-red-500/30 transition-all duration-700 ${
                       contextualPhase >= 0 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
                     }`}>
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className=flex items-center gap-2 mb-2">
                         <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
                           <span className="text-xs font-bold text-white">D</span>
                         </div>
@@ -990,7 +990,7 @@
                           <div className="w-1.5 h-1.5 bg-[#4C3BCF] rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
                           <div className="w-1.5 h-1.5 bg-[#4C3BCF] rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
                         </div>
-                        <span className="text-xs text-gray-400 ml-2">Checking credentials...</span>
+                        <span className="text-xs text-gray-400 ml-2`>Checking credentials...</span>
                       </div>
                     )}
 
@@ -999,7 +999,7 @@
                       <div className={`bg-[#4C3BCF]/10 rounded-2xl p-3 border border-[#4C3BCF]/30 transition-all duration-700 ${
                         contextualPhase >= 2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
                       }`}>
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className=flex items-center gap-2 mb-2">
                           <div className="w-6 h-6 bg-[#4C3BCF] rounded-full flex items-center justify-center">
                             <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -1007,7 +1007,7 @@
                           </div>
                           <span className="text-xs text-[#4C3BCF] font-semibold">Feeta AI</span>
                         </div>
-                        <p className="text-xs text-gray-300 mb-2">Found the issue! You're using the secret key as token key. Let me explain the correct setup.</p>
+                        <p className="text-xs text-gray-300 mb-2`>Found the issue! You're using the secret key as token key. Let me explain the correct setup.</p>
                       </div>
                     )}
 
@@ -1016,8 +1016,8 @@
                       <div className={`bg-green-500/10 rounded-2xl p-3 border border-green-500/30 transition-all duration-700 ${
                         contextualPhase >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
                       }`}>
-                        <div className="text-xs text-green-400 font-semibold mb-2">NMI Credential Setup:</div>
-                        <div className="space-y-1 text-xs text-gray-300">
+                        <div className=text-xs text-green-400 font-semibold mb-2">NMI Credential Setup:</div>
+                        <div className="space-y-1 text-xs text-gray-300`>
                           <p>• Secret Key = Private Key (server-side only)</p>
                           <p>• Token Key = Public Key (client-side)</p>
                           <p>• Never expose secret key in frontend</p>
@@ -1031,7 +1031,7 @@
                       <div className={`bg-gray-900/60 rounded-xl p-3 border border-gray-800/30 transition-all duration-700 ${
                         contextualPhase >= 4 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
                       }`}>
-                        <div className="text-xs text-gray-400 mb-2">Correct Setup:</div>
+                        <div className=text-xs text-gray-400 mb-2">Correct Setup:</div>
                         <div className="bg-black/60 rounded p-2 font-mono text-xs space-y-1">
                           <div><span className="text-gray-500">// .env file</span></div>
                           <div><span className="text-blue-400">NMI_SECRET_KEY</span><span className="text-gray-400">=</span><span className="text-green-400">your_private_key</span></div>
