@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 import vertexai
 from vertexai.generative_models import GenerativeModel
+from google.oauth2 import service_account
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 from app.database.mongodb import (
@@ -19,8 +20,40 @@ logger = logging.getLogger(__name__)
 GCP_PROJECT_ID = os.getenv('GCP_PROJECT_ID', 'your-project-id')
 GCP_LOCATION = os.getenv('GCP_LOCATION', 'us-central1')
 
-vertexai.init(project=GCP_PROJECT_ID, location=GCP_LOCATION)
-logger.info(f"🔑 Using Vertex AI with project: {GCP_PROJECT_ID}, location: {GCP_LOCATION}")
+# Initialize credentials from environment variable or file
+credentials = None
+GCP_CREDENTIALS_JSON = os.getenv('GCP_CREDENTIALS_JSON')
+
+if GCP_CREDENTIALS_JSON:
+    # Load from environment variable (for deployment)
+    try:
+        creds_dict = json.loads(GCP_CREDENTIALS_JSON)
+        credentials = service_account.Credentials.from_service_account_info(creds_dict)
+        logger.info("✅ Loaded credentials from environment variable")
+    except Exception as e:
+        logger.error(f"❌ Failed to load credentials from env: {e}")
+else:
+    # Load from file (for local development)
+    creds_file = os.path.join(os.path.dirname(__file__), '..', 'gen-lang-client-0364393343-26c3a291d763.json')
+    if os.path.exists(creds_file):
+        try:
+            credentials = service_account.Credentials.from_service_account_file(creds_file)
+            logger.info(f"✅ Loaded credentials from file: {creds_file}")
+        except Exception as e:
+            logger.error(f"❌ Failed to load credentials from file: {e}")
+    else:
+        logger.warning("⚠️ No credentials found. Vertex AI may not work.")
+
+# Initialize Vertex AI with credentials
+vertexai.init(project=GCP_PROJECT_ID, location=GCP_LOCATION, credentials=credentials)
+logger.info("="*60)
+logger.info("🤖 AI SERVICE INITIALIZATION")
+logger.info("="*60)
+logger.info(f"✅ Using VERTEX AI SDK")
+logger.info(f"📦 Project: {GCP_PROJECT_ID}")
+logger.info(f"🌍 Location: {GCP_LOCATION}")
+logger.info(f"🔑 Credentials: {'✅ Loaded' if credentials else '❌ Not loaded'}")
+logger.info("="*60)
 
 # Store sessions in memory (use Redis in production)
 task_sessions = {}
@@ -277,6 +310,7 @@ Respond with valid JSON:
     try:
         # Detect task type
         logger.info("🚀 Calling Gemini for task type detection...")
+        logger.info("🔧 API Method: VERTEX AI SDK (GenerativeModel)")
         model = GenerativeModel('gemini-2.0-flash-exp')
         response = model.generate_content(
             type_detection_prompt,
@@ -456,6 +490,7 @@ Return JSON:
         
         # Call Gemini for clarity analysis
         logger.info("🚀 Calling Gemini for clarity analysis...")
+        logger.info("🔧 API Method: VERTEX AI SDK (GenerativeModel)")
         model = GenerativeModel('gemini-2.0-flash-exp')
         response = model.generate_content(
             clarity_prompt,
@@ -591,6 +626,7 @@ Respond ONLY with valid JSON:
 }}"""
         
         logger.info("🚀 Calling Gemini for deep analysis...")
+        logger.info("🔧 API Method: VERTEX AI SDK (GenerativeModel)")
         model = GenerativeModel('gemini-2.0-flash-exp')
         response = model.generate_content(
             prompt,
@@ -851,6 +887,7 @@ Return ONLY valid JSON:
 
     try:
         logger.info("🚀 Calling Gemini API for implementation plan...")
+        logger.info("🔧 API Method: VERTEX AI SDK (GenerativeModel)")
         model = GenerativeModel('gemini-2.0-flash-exp')
         response = model.generate_content(
             prompt,
@@ -927,6 +964,7 @@ Generate a JSON response with this structure:
 Keep updates brief (max 15 words each). Return ONLY valid JSON, no markdown, no code blocks."""
         
         logger.info("🚀 Calling Gemini API for summary...")
+        logger.info("🔧 API Method: VERTEX AI SDK (GenerativeModel)")
         model = GenerativeModel('gemini-2.0-flash-exp')
         response = model.generate_content(
             prompt,

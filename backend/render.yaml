@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: feeta-backend
+    runtime: python
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GCP_PROJECT_ID
+        value: gen-lang-client-0364393343
+      - key: GCP_LOCATION
+        value: us-central1
+      - key: GCP_CREDENTIALS_JSON
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false

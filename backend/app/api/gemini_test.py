@@ -61,6 +61,8 @@ def test_gemini():
             })
         contents.append({'parts': [{'text': prompt}]})
         
+        logger.info("🔧 API Method: GENERATIVE AI REST API (Direct HTTP)")
+        logger.info("🔑 Using GEMINI_API_KEY for authentication")
         api_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent'
         
         response = requests.post(
