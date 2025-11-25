@@ -170,4 +170,53 @@ def get_history(session_id):
         logger.error(f"❌ Error fetching history: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+@task_bp.route("/tasks/<task_id>/status", methods=["PUT", "OPTIONS"])
+def update_task_status(task_id):
+    """Update task status"""
+    if request.method == "OPTIONS":
+        return jsonify({"ok": True}), 200
+    
+    # Validate JWT token
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"error": "No authorization provided"}), 401
+    
+    try:
+        from app.database.mongodb import get_db
+        from bson import ObjectId
+        from datetime import datetime
+        
+        # Get user_id from JWT token
+        token = auth_header.replace('Bearer ', '')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_email = payload.get('sub')
+        
+        body = request.get_json()
+        new_status = body.get('status')
+        
+        if not new_status:
+            return jsonify({"error": "status required"}), 400
+        
+        db = get_db()
+        
+        # Update task status
+        result = db.tasks.update_one(
+            {'_id': ObjectId(task_id), 'user_email': user_email},
+            {'$set': {'status': new_status, 'updated_at': datetime.utcnow()}}
+        )
+        
+        if result.modified_count == 0:
+            return jsonify({"error": "Task not found or not authorized"}), 404
+        
+        logger.info(f"✅ Task {task_id} status updated to {new_status}")
+        return jsonify({"success": True, "status": new_status}), 200
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+    except Exception as e:
+        logger.error(f"❌ Error updating task status: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 

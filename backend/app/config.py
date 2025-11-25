@@ -21,11 +21,19 @@ class Config:
     # MongoDB
     MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
     DATABASE_NAME = "feeta"
+
+    # SMTP Configuration
+    MAIL_SERVER = 'smtp.hostinger.com'
+    MAIL_PORT = 465
+    MAIL_USERNAME = os.getenv('MAIL_USERNAME')
+    MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
+    MAIL_USE_TLS = False
+    MAIL_USE_SSL = True
+    MAIL_DEFAULT_SENDER = os.getenv('MAIL_USERNAME')
     
     # GitHub OAuth
     GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
     GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
-    
     # Slack OAuth
     SLACK_CLIENT_ID = os.getenv("SLACK_CLIENT_ID")
     SLACK_CLIENT_SECRET = os.getenv("SLACK_CLIENT_SECRET")

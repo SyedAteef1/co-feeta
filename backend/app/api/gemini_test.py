@@ -30,7 +30,7 @@ def ping():
 @gemini_test_bp.route('/test-gemini', methods=['POST'])
 @cross_origin()
 def test_gemini():
-    """Test Gemini API with custom prompt"""
+    """Test Gemini API with custom prompt using Vertex AI SDK"""
     auth_header = request.headers.get('Authorization')
     if not auth_header:
         return jsonify({'error': 'No authorization provided'}), 401
@@ -49,50 +49,42 @@ def test_gemini():
         if not prompt:
             return jsonify({'error': 'prompt is required'}), 400
         
-        if not GEMINI_API_KEY:
-            return jsonify({'error': 'GEMINI_API_KEY not configured'}), 500
+        logger.info("🔧 API Method: VERTEX AI SDK (GenerativeModel)")
         
-        # Build contents with history
-        contents = []
-        for msg in history:
-            contents.append({
-                'role': msg['role'],
-                'parts': [{'text': msg['content']}]
+        try:
+            import vertexai
+            from vertexai.generative_models import GenerativeModel
+            from google.oauth2 import service_account
+            import json
+            
+            # Initialize Vertex AI
+            GCP_PROJECT_ID = os.getenv('GCP_PROJECT_ID', 'your-project-id')
+            GCP_LOCATION = os.getenv('GCP_LOCATION', 'us-central1')
+            GCP_CREDENTIALS_JSON = os.getenv('GCP_CREDENTIALS_JSON')
+            
+            credentials = None
+            if GCP_CREDENTIALS_JSON:
+                creds_dict = json.loads(GCP_CREDENTIALS_JSON)
+                credentials = service_account.Credentials.from_service_account_info(creds_dict)
+            
+            vertexai.init(project=GCP_PROJECT_ID, location=GCP_LOCATION, credentials=credentials)
+            
+            model = GenerativeModel('gemini-2.0-flash-exp')
+            response = model.generate_content(
+                prompt,
+                generation_config={'temperature': 0.7, 'max_output_tokens': 2048}
+            )
+            
+            text = response.text
+            
+            return jsonify({
+                'success': True,
+                'response': text
             })
-        contents.append({'parts': [{'text': prompt}]})
-        
-        logger.info("🔧 API Method: GENERATIVE AI REST API (Direct HTTP)")
-        logger.info("🔑 Using GEMINI_API_KEY for authentication")
-        api_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent'
-        
-        response = requests.post(
-            api_url,
-            headers={'Content-Type': 'application/json'},
-            params={'key': GEMINI_API_KEY},
-            json={
-                'contents': contents,
-                'generationConfig': {'temperature': 0.7, 'maxOutputTokens': 2048}
-            },
-            timeout=30
-        )
-        
-        data = response.json()
-        
-        if 'error' in data:
-            error_msg = data['error'].get('message', 'Unknown error')
-            logger.error(f"Gemini API Error: {error_msg}")
-            return jsonify({'success': False, 'error': error_msg}), 500
-        
-        if 'candidates' not in data or not data['candidates']:
-            logger.error("No candidates in response")
-            return jsonify({'success': False, 'error': 'No response from Gemini'}), 500
-        
-        text = data['candidates'][0]['content']['parts'][0]['text']
-        
-        return jsonify({
-            'success': True,
-            'response': text
-        })
+            
+        except Exception as e:
+            logger.error(f"Vertex AI Error: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
         
     except jwt.ExpiredSignatureError:
         return jsonify({'error': 'Token expired'}), 401

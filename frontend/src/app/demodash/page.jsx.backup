@@ -1579,7 +1579,7 @@ export default function DemoDash() {
 
   const checkAuth = async () => {
     const token = localStorage.getItem('token');
-    if (!token || token === 'undefined' || token === 'null') {
+    if (!token) {
       router.push('/login');
       return;
     }
@@ -3189,7 +3189,7 @@ export default function DemoDash() {
                   );
                 })()}
                 <div className="flex-1">
-                  <p className="text-sm font-semibold">{(userName || user?.name || user?.email?.split('@')[0] || 'User').charAt(0).toUpperCase() + (userName || user?.name || user?.email?.split('@')[0] || 'User').slice(1)}</p>
+                  <p className="text-sm font-semibold">{userName || user?.name || user?.email?.split('@')[0] || 'User'}</p>
                   <p className="text-xs text-gray-500">Pro</p>
                 </div>
                 <button 
@@ -3607,7 +3607,7 @@ export default function DemoDash() {
           {/* Greeting */}
           <div className="mb-8 flex items-center justify-between">
             <div>
-              <h2 className="text-3xl font-bold mb-2">Good {getGreeting()}, {userName.charAt(0).toUpperCase() + userName.slice(1)}!</h2>
+              <h2 className="text-3xl font-bold mb-2">Good {getGreeting()}, {userName}!</h2>
               <p className="text-gray-400 text-sm">Here is today's overview</p>
             </div>
             <div className="flex gap-3">
@@ -5030,24 +5030,14 @@ export default function DemoDash() {
         </div>
       )}
     </div>
-    <div className="space-y-3 mt-4">
+    <div className="space-y-1">
       {msg.plan.subtasks?.map((task, i) => (
         <div
           key={i}
-          className="group bg-[#0f0f0f]/80 backdrop-blur-sm border border-[#1f1f1f]/50 rounded-xl p-4 hover:bg-[#111111]/90 hover:border-[#2a2a2a] transition-all duration-200"
+          className="text-sm text-gray-400 pl-4 border-l-2 border-gray-700 bg-[#1a1a1a] p-3 rounded-lg"
         >
-          <div className="flex items-start gap-3 mb-3">
-            <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-[#4C3BCF]/20 to-[#6B5CE6]/20 border border-[#4C3BCF]/30 flex items-center justify-center">
-              <span className="text-sm font-bold text-[#4C3BCF]">{i + 1}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-semibold text-white leading-tight mb-2">{task.title || task.task}</h4>
-              {task.description && (
-                <p className="text-xs text-gray-400 leading-relaxed">{task.description}</p>
-              )}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="font-medium text-gray-300 flex items-center justify-between">
+            <span>{i + 1}. {task.title || task.task}</span>
             <div className="flex items-center gap-2 text-xs">
               {task.timeline && (
                 <span className="text-[#4C3BCF]">⏱️ {task.timeline}</span>
@@ -5626,7 +5616,7 @@ export default function DemoDash() {
           <div className="bg-[#0f0f0f]/80 backdrop-blur-2xl border border-[#2a2a2a]/50 rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-xl font-semibold text-white">Review & Approve Tasks</h3>
+                <h3 className="text-xl font-semibold">Review & Approve Tasks</h3>
                 <p className="text-sm text-gray-400 mt-1">{pendingTasks.length} tasks pending approval</p>
               </div>
               <button
@@ -5684,7 +5674,7 @@ export default function DemoDash() {
                   <div key={task.id} className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <h4 className="font-semibold text-sm mb-1 text-white">{task.title}</h4>
+                        <h4 className="font-semibold text-sm mb-1">{task.title}</h4>
                         <p className="text-xs text-gray-400 mb-2">{task.description}</p>
                         <div className="flex items-center gap-3 text-xs text-gray-500">
                           {task.deadline && (

@@ -7,6 +7,11 @@ from flask import Flask
 from flask_cors import CORS
 from app.config import Config
 
+from flask_mail import Mail
+
+# Initialize extensions
+mail = Mail()
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -29,6 +34,9 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     app.secret_key = Config.SECRET_KEY  # Required for session
+    
+    # Initialize Flask-Mail
+    mail.init_app(app)
     
     # Initialize Flask-JWT-Extended
     from flask_jwt_extended import JWTManager
@@ -76,6 +84,9 @@ def create_app():
     from app.api.jira import jira_bp
     from app.api.demo import demo_bp
     from app.api.dashboard import dashboard_bp
+    from app.api.feeta_operator import feeta_bp
+    from app.api.analytics import analytics_bp
+    from app.api.ask_feeta import ask_feeta_bp
     
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(dashboard_bp, url_prefix='/api')
@@ -88,6 +99,9 @@ def create_app():
     app.register_blueprint(gemini_test_bp, url_prefix='/api')
     app.register_blueprint(jira_bp, url_prefix='/api/jira')
     app.register_blueprint(demo_bp, url_prefix='/api/demo')
+    app.register_blueprint(feeta_bp)
+    app.register_blueprint(analytics_bp, url_prefix='/api')
+    app.register_blueprint(ask_feeta_bp)
     
     logger.info("✅ API routes registered")
     

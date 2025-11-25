@@ -5,12 +5,6 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { RadialBarChart, RadialBar, LabelList, ResponsiveContainer } from 'recharts';
 import { TrendingUp } from 'lucide-react';
-import IntentActionPanel from '@/components/IntentActionPanel';
-import FeetaActivityStream from '@/components/FeetaActivityStream';
-import ClarifyingQuestionsCenter from '@/components/ClarifyingQuestionsCenter';
-import AutoAssignmentIntelligence from '@/components/AutoAssignmentIntelligence';
-import AutopilotPanel from '@/components/AutopilotPanel';
-import FeetaSummaries from '@/components/FeetaSummaries';
 
 // Tasks Page Component
 function TasksPage({ user }) {
@@ -662,62 +656,18 @@ function TasksPage({ user }) {
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={task.status}
-                    onChange={async (e) => {
-                      const newStatus = e.target.value;
-                      const taskId = task.id || task._id;
-                      const token = localStorage.getItem('token');
-                      
-                      // Update UI immediately
-                      setFilteredTasks(prev => prev.map(t => 
-                        (t.id || t._id) === taskId ? { ...t, status: newStatus } : t
-                      ));
-                      setAllTasks(prev => prev.map(t => 
-                        (t.id || t._id) === taskId ? { ...t, status: newStatus } : t
-                      ));
-                      
-                      try {
-                        const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/status`, {
-                          method: 'PUT',
-                          headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json'
-                          },
-                          body: JSON.stringify({ status: newStatus })
-                        });
-                        if (!response.ok) {
-                          // Revert on error
-                          loadTasks();
-                          alert('Failed to update status');
-                        }
-                      } catch (error) {
-                        console.error('Error updating status:', error);
-                        // Revert on error
-                        loadTasks();
-                        alert('Error updating status');
-                      }
-                    }}
-                    className="px-3 py-1.5 text-xs bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white hover:bg-[#222222] transition-all cursor-pointer"
-                  >
-                    <option value="pending_approval">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                  </select>
-                  <button
-                    onClick={() => handleFollowup(task)}
-                    disabled={sendingFollowup === (task.id || task._id)}
-                    className="px-3 py-1.5 text-xs bg-[#4C3BCF]/20 text-[#4C3BCF] border border-[#4C3BCF]/30 rounded-lg hover:bg-[#4C3BCF]/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
-                    title="Send follow-up message"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                      <path d="M8 2V8L11 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
-                    </svg>
-                    {sendingFollowup === task.id ? 'Sending...' : 'Follow-up'}
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleFollowup(task)}
+                  disabled={sendingFollowup === (task.id || task._id)}
+                  className="px-3 py-1.5 text-xs bg-[#4C3BCF]/20 text-[#4C3BCF] border border-[#4C3BCF]/30 rounded-lg hover:bg-[#4C3BCF]/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                  title="Send follow-up message"
+                >
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 2V8L11 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
+                  </svg>
+                  {sendingFollowup === task.id ? 'Sending...' : 'Follow-up'}
+                </button>
               </div>
             </div>
           ))}
@@ -1479,28 +1429,11 @@ export default function DemoDash() {
       const inProgressPercent = totalTasks > 0 ? Math.round((inProgressTasks / totalTasks) * 100) : 0;
       const pendingPercent = totalTasks > 0 ? Math.round((pendingTasks / totalTasks) * 100) : 0;
 
-      // Calculate follow-ups sent
-      const followUpsCount = allTasks.filter(t => t.last_followup_at).length;
-      
-      // Calculate team velocity (tasks completed per week)
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      const recentCompletions = allTasks.filter(t => {
-        if (!t.updated_at || t.status !== 'completed') return false;
-        return new Date(t.updated_at) >= oneWeekAgo;
-      }).length;
-      
-      // Calculate blocked tasks
-      const blockedCount = allTasks.filter(t => 
-        t.status === 'blocked' || 
-        (t.status === 'pending_approval' && new Date(t.created_at) < new Date(Date.now() - 48*60*60*1000))
-      ).length;
-
       const stats = {
-        tasksCreated: allTasks.length,
-        followUps: followUpsCount,
-        teamVelocity: recentCompletions,
-        blockedTasks: blockedCount
+        activeProjects: userProjects.length,
+        bottlenecks: bottleneckCount,
+        tasksCompleted: completedTasks,
+        members: members.length
       };
 
       const pieData = {
@@ -1516,7 +1449,7 @@ export default function DemoDash() {
         totalCount: totalTasks
       };
 
-      const pendingDisplay = pendingTasksList.slice(0, 15).map(task => ({
+      const pendingDisplay = pendingTasksList.slice(0, 10).map(task => ({
         id: task.id || task._id,
         user: task.assigned_to || 'Unassigned',
         action: task.title || task.task || 'Untitled task',
@@ -1533,18 +1466,6 @@ export default function DemoDash() {
       setPieChartData(pieData);
       setTeamPerformanceData(performanceData);
       setPendingTasksForDisplay(pendingDisplay);
-      
-      // Animate stats from 0 to actual values
-      animateValue('tasksCreated', 0, stats.tasksCreated, 1500);
-      animateValue('followUps', 0, stats.followUps, 1500);
-      animateValue('teamVelocity', 0, stats.teamVelocity, 1500);
-      animateValue('blockedTasks', 0, stats.blockedTasks, 1500);
-      
-      // Animate performance data
-      animatePerformanceValue('completedCount', 0, performanceData.completedCount, 1500);
-      animatePerformanceValue('inProgressCount', 0, performanceData.inProgressCount, 1500);
-      animatePerformanceValue('pendingCount', 0, performanceData.pendingCount, 1500);
-      animatePerformanceValue('totalCount', 0, performanceData.totalCount, 1500);
 
       // Cache the data
       sessionStorage.setItem(cacheKey, JSON.stringify({
@@ -1579,7 +1500,7 @@ export default function DemoDash() {
 
   const checkAuth = async () => {
     const token = localStorage.getItem('token');
-    if (!token || token === 'undefined' || token === 'null') {
+    if (!token) {
       router.push('/login');
       return;
     }
@@ -2373,14 +2294,12 @@ export default function DemoDash() {
     setMessages([]);
     setSessionId(null);
     
-    // Track project access time for recent projects sorting (client-side only)
-    if (typeof window !== 'undefined') {
-      const projectId = project._id || project.id;
-      if (projectId) {
-        const accessData = JSON.parse(localStorage.getItem('projectAccessTimes') || '{}');
-        accessData[projectId] = new Date().toISOString();
-        localStorage.setItem('projectAccessTimes', JSON.stringify(accessData));
-      }
+    // Track project access time for recent projects sorting
+    const projectId = project._id || project.id;
+    if (projectId) {
+      const accessData = JSON.parse(localStorage.getItem('projectAccessTimes') || '{}');
+      accessData[projectId] = new Date().toISOString();
+      localStorage.setItem('projectAccessTimes', JSON.stringify(accessData));
     }
     
     // Load project messages if any
@@ -2827,18 +2746,6 @@ export default function DemoDash() {
       }
     }
     
-    @keyframes wave {
-      0% {
-        background-position: 0% 50%;
-      }
-      50% {
-        background-position: 100% 50%;
-      }
-      100% {
-        background-position: 0% 50%;
-      }
-    }
-    
     /* GPU acceleration for smoother animations */
     .gpu-accelerate {
       will-change: transform;
@@ -2868,10 +2775,10 @@ export default function DemoDash() {
 
   // Dashboard state
   const [dashboardStats, setDashboardStats] = useState({
-    tasksCreated: 0,
-    followUps: 0,
-    teamVelocity: 0,
-    blockedTasks: 0
+    activeProjects: 0,
+    bottlenecks: 0,
+    tasksCompleted: 0,
+    members: 0
   });
   const [bottleneckData, setBottleneckData] = useState({
     overloadedMembers: [],
@@ -2897,61 +2804,8 @@ export default function DemoDash() {
   });
   const [userName, setUserName] = useState('User');
   const [teamMembers, setTeamMembers] = useState([]);
-  const [selectedProjects, setSelectedProjects] = useState([]);
-  const [animatedStats, setAnimatedStats] = useState({
-    tasksCreated: 0,
-    followUps: 0,
-    teamVelocity: 0,
-    blockedTasks: 0
-  });
-  const [animatedPerformance, setAnimatedPerformance] = useState({
-    completedCount: 0,
-    inProgressCount: 0,
-    pendingCount: 0,
-    totalCount: 0
-  });
-  
-  // AI Operator chat state
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState('');
-  const [isAskingFeeta, setIsAskingFeeta] = useState(false);
 
   // Cartoon avatar colors based on user
-  // Animate number from start to end
-  const animateValue = (key, start, end, duration) => {
-    const startTime = Date.now();
-    const animate = () => {
-      const now = Date.now();
-      const progress = Math.min((now - startTime) / duration, 1);
-      const easeOutQuart = 1 - Math.pow(1 - progress, 4);
-      const current = Math.floor(start + (end - start) * easeOutQuart);
-      
-      setAnimatedStats(prev => ({ ...prev, [key]: current }));
-      
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      }
-    };
-    requestAnimationFrame(animate);
-  };
-  
-  const animatePerformanceValue = (key, start, end, duration) => {
-    const startTime = Date.now();
-    const animate = () => {
-      const now = Date.now();
-      const progress = Math.min((now - startTime) / duration, 1);
-      const easeOutQuart = 1 - Math.pow(1 - progress, 4);
-      const current = Math.floor(start + (end - start) * easeOutQuart);
-      
-      setAnimatedPerformance(prev => ({ ...prev, [key]: current }));
-      
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      }
-    };
-    requestAnimationFrame(animate);
-  };
-
   const getCartoonAvatar = (name) => {
     const colors = [
       { bg: 'from-purple-400 to-pink-400', emoji: '🦄' },
@@ -3093,22 +2947,9 @@ export default function DemoDash() {
             {!sidebarCollapsed && <span>Issue Resolution</span>}
           </button>
 
-          <button 
-            onClick={() => handleMenuItemClick('ai-operator')}
-            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 text-sm ${activePage === 'ai-operator' ? 'text-white bg-[#1a1a1a]' : 'text-gray-400 hover:text-white'} hover:bg-[#1a1a1a] rounded-lg transition-all`}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0">
-              <rect x="3" y="3" width="10" height="10" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-              <circle cx="6" cy="6" r="1" fill="currentColor"/>
-              <circle cx="10" cy="6" r="1" fill="currentColor"/>
-              <path d="M6 10C6 10 7 11 8 11C9 11 10 10 10 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-            {!sidebarCollapsed && <span>AI Operator</span>}
-          </button>
-
           {!sidebarCollapsed && (() => {
-            // Get real-time recent projects from localStorage (client-side only)
-            const accessData = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('projectAccessTimes') || '{}') : {};
+            // Get real-time recent projects from localStorage
+            const accessData = JSON.parse(localStorage.getItem('projectAccessTimes') || '{}');
             const sortedProjects = [...projects].sort((a, b) => {
               const aId = a._id || a.id;
               const bId = b._id || b.id;
@@ -3142,8 +2983,7 @@ export default function DemoDash() {
                       className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-[#1a1a1a] rounded-lg transition-colors"
                     >
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M9 2H4C3.5 2 3 2.5 3 3V13C3 13.5 3.5 14 4 14H12C12.5 14 13 13.5 13 13V6L9 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-                        <path d="M9 2V6H13" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                        <rect x="4" y="4" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="1.5"/>
                       </svg>
                       <span className="truncate">{project.name}</span>
                     </button>
@@ -3189,7 +3029,7 @@ export default function DemoDash() {
                   );
                 })()}
                 <div className="flex-1">
-                  <p className="text-sm font-semibold">{(userName || user?.name || user?.email?.split('@')[0] || 'User').charAt(0).toUpperCase() + (userName || user?.name || user?.email?.split('@')[0] || 'User').slice(1)}</p>
+                  <p className="text-sm font-semibold">{userName || user?.name || user?.email?.split('@')[0] || 'User'}</p>
                   <p className="text-xs text-gray-500">Pro</p>
                 </div>
                 <button 
@@ -3265,7 +3105,12 @@ export default function DemoDash() {
           {/* New Project Button */}
           <div className="px-5 py-4 border-b border-[#2a2a2a] bg-[#0a0a0a]/30">
             <button 
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => {
+                if (!isProjectsPanelOpen) {
+                  toggleProjectsPanel();
+                }
+                setShowCreateModal(true);
+              }}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#4C3BCF] to-[#6B5CE6] hover:from-[#4C3BCF]/90 hover:to-[#6B5CE6]/90 rounded-xl text-white text-sm font-semibold transition-all shadow-lg shadow-[#4C3BCF]/30 hover:shadow-[#4C3BCF]/50 hover:scale-[1.02] active:scale-[0.98]">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -3291,8 +3136,8 @@ export default function DemoDash() {
             ) : (
               <div className="space-y-2">
                 {(() => {
-                  // Sort projects by most recently accessed (client-side only)
-                  const accessData = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('projectAccessTimes') || '{}') : {};
+                  // Sort projects by most recently accessed
+                  const accessData = JSON.parse(localStorage.getItem('projectAccessTimes') || '{}');
                   const sortedProjects = [...projects].sort((a, b) => {
                     const aId = a._id || a.id;
                     const bId = b._id || b.id;
@@ -3392,7 +3237,7 @@ export default function DemoDash() {
         
         {/* Header */}
         <div 
-          className="sticky top-0 bg-[#0a0a0a]/40 backdrop-blur-2xl border-b border-[#1f1f1f]/30 px-8 py-5 flex items-center justify-between z-20 shadow-lg shadow-black/10 transition-all duration-300"
+          className={`bg-[#0a0a0a]/40 backdrop-blur-2xl border-b border-[#1f1f1f]/30 px-8 py-5 flex items-center justify-between z-20 shadow-lg shadow-black/10 transition-all duration-300 ${activePage === 'projects' ? '' : 'sticky top-0'}`}
         >
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl shadow-lg shadow-black/5">
@@ -3607,7 +3452,7 @@ export default function DemoDash() {
           {/* Greeting */}
           <div className="mb-8 flex items-center justify-between">
             <div>
-              <h2 className="text-3xl font-bold mb-2">Good {getGreeting()}, {userName.charAt(0).toUpperCase() + userName.slice(1)}!</h2>
+              <h2 className="text-3xl font-bold mb-2">Good {getGreeting()}, {userName}!</h2>
               <p className="text-gray-400 text-sm">Here is today's overview</p>
             </div>
             <div className="flex gap-3">
@@ -3618,7 +3463,12 @@ export default function DemoDash() {
                 <span>Import</span>
               </button>
               <button 
-                onClick={() => setShowCreateModal(true)}
+                onClick={() => {
+                  if (!isProjectsPanelOpen) {
+                    toggleProjectsPanel();
+                  }
+                  setShowCreateModal(true);
+                }}
                 className="flex items-center gap-2 px-5 py-2.5 text-sm bg-white text-black hover:bg-gray-100 rounded-lg transition-all font-medium shadow-sm"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -3631,227 +3481,257 @@ export default function DemoDash() {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-4 gap-5 mb-8">
-            <div className="gpu-accelerate bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] hover:shadow-2xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-300 cursor-pointer group relative" title="Total number of tasks created across all projects">
+            <div className="gpu-accelerate bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] hover:shadow-2xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mb-3">Tasks Created</p>
-                  <p className="text-4xl font-bold tracking-tight">{animatedStats.tasksCreated}</p>
-                  <p className="text-xs text-green-400 mt-2">Total tasks in system</p>
+                  <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mb-3">Active projects</p>
+                  <p className="text-4xl font-bold tracking-tight">{dashboardStats.activeProjects}</p>
                 </div>
-                <div className="w-14 h-14 bg-blue-500/10 group-hover:bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 transition-all ml-4">
+                <div className="w-14 h-14 bg-[#1a1a1a]/50 group-hover:bg-[#222222]/50 rounded-xl flex items-center justify-center text-gray-400 group-hover:text-gray-300 transition-all ml-4">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                     <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M8 4V20M16 4V20M4 12H20" stroke="currentColor" strokeWidth="2"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            
+            <div className="gpu-accelerate bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] hover:shadow-2xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mb-3">Bottlenecks</p>
+                  <p className="text-4xl font-bold tracking-tight">{dashboardStats.bottlenecks}</p>
+                </div>
+                <div className="w-14 h-14 bg-[#1a1a1a]/50 group-hover:bg-[#222222]/50 rounded-xl flex items-center justify-center text-gray-400 group-hover:text-gray-300 transition-all ml-4">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 9V13M12 17H12.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M10.29 3.86L1.82 18C1.64 18.3 1.54 18.65 1.54 19C1.54 20.1 2.44 21 3.54 21H20.46C21.56 21 22.46 20.1 22.46 19C22.46 18.65 22.36 18.3 22.18 18L13.71 3.86C13.34 3.21 12.69 2.79 12 2.79C11.31 2.79 10.66 3.21 10.29 3.86Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            
+            <div className="gpu-accelerate bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] hover:shadow-2xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mb-3">Tasks completed</p>
+                  <p className="text-4xl font-bold tracking-tight">{dashboardStats.tasksCompleted}</p>
+                </div>
+                <div className="w-14 h-14 bg-[#1a1a1a]/50 group-hover:bg-[#222222]/50 rounded-xl flex items-center justify-center text-gray-400 group-hover:text-gray-300 transition-all ml-4">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                     <path d="M9 12L11 14L15 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2"/>
                   </svg>
                 </div>
-              </div>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                📊 Total workload across all projects
               </div>
             </div>
             
-            <div className="gpu-accelerate bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] hover:shadow-2xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-300 cursor-pointer group relative" title="Number of follow-up messages sent to team members">
+            <div className="gpu-accelerate bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] hover:shadow-2xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mb-3">Follow-ups Sent</p>
-                  <p className="text-4xl font-bold tracking-tight">{animatedStats.followUps}</p>
-                  <p className="text-xs text-purple-400 mt-2">Active monitoring</p>
+                  <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mb-3">Members</p>
+                  <p className="text-4xl font-bold tracking-tight">{dashboardStats.members}</p>
                 </div>
-                <div className="w-14 h-14 bg-purple-500/10 group-hover:bg-purple-500/20 rounded-xl flex items-center justify-center text-purple-400 transition-all ml-4">
+                <div className="w-14 h-14 bg-[#1a1a1a]/50 group-hover:bg-[#222222]/50 rounded-xl flex items-center justify-center text-gray-400 group-hover:text-gray-300 transition-all ml-4">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 8V12L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/>
+                    <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M2 21V19C2 16.5 4.5 14.5 7.5 14.5H10.5C13.5 14.5 16 16.5 16 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <circle cx="17" cy="7" r="3" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M22 21V19.5C22 17.5 20 16 18 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
                 </div>
-              </div>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                💬 AI-powered task status checks
-              </div>
-            </div>
-            
-            <div className="gpu-accelerate bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] hover:shadow-2xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-300 cursor-pointer group relative" title="Tasks completed in the last 7 days">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mb-3">Team Velocity</p>
-                  <p className="text-4xl font-bold tracking-tight">{animatedStats.teamVelocity}</p>
-                  <p className="text-xs text-green-400 mt-2">Tasks/week</p>
-                </div>
-                <div className="w-14 h-14 bg-green-500/10 group-hover:bg-green-500/20 rounded-xl flex items-center justify-center text-green-400 transition-all ml-4">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M13 7L18 12L13 17M6 12H18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              </div>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                🚀 Team productivity metric
-              </div>
-            </div>
-            
-            <div className="gpu-accelerate bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] hover:shadow-2xl hover:shadow-black/30 hover:scale-[1.02] transition-all duration-300 cursor-pointer group relative" title="Tasks stuck or pending approval for 48+ hours">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors mb-3">Blocked Tasks</p>
-                  <p className="text-4xl font-bold tracking-tight">{animatedStats.blockedTasks}</p>
-                  <p className="text-xs text-red-400 mt-2">Needs attention</p>
-                </div>
-                <div className="w-14 h-14 bg-red-500/10 group-hover:bg-red-500/20 rounded-xl flex items-center justify-center text-red-400 transition-all ml-4">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/>
-                    <path d="M15 9L9 15M9 9L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
-                </div>
-              </div>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                ⚠️ Critical items requiring action
               </div>
             </div>
           </div>
 
           {/* Progress & Activity */}
-          <div className="grid grid-cols-2 gap-6 mb-8 items-stretch">
-            {/* Team Performance - Radial Progress with AI Insights */}
-            <div className="bg-gradient-to-br from-[#0f0f0f]/80 via-[#1a1a1a]/60 to-[#0f0f0f]/80 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-2xl p-8 hover:border-[#2a2a2a] transition-all duration-300 flex flex-col relative overflow-hidden">
-              {/* Animated AI Grid Background */}
-              <div className="absolute inset-0 opacity-10 pointer-events-none">
-                <div className="absolute inset-0" style={{
-                  backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(76, 59, 207, 0.3) 1px, transparent 0)',
-                  backgroundSize: '40px 40px'
-                }}></div>
-              </div>
-              
-              <div className="flex items-center justify-between mb-6 relative z-10">
+          <div className="grid grid-cols-3 gap-6 mb-8 items-stretch">
+            {/* Progress Report - Radial Bar Chart */}
+            <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-8 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all duration-300 flex flex-col">
+              <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Team Performance</h3>
-                  <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                    AI-Powered Analytics
-                  </p>
+                  <h3 className="text-xl font-semibold">Team Performance</h3>
+                  <p className="text-sm text-gray-400 mt-1">Real-time Task Status</p>
                 </div>
-                <div className="px-3 py-1.5 bg-gradient-to-r from-[#4C3BCF]/20 to-[#6B5CE6]/20 border border-[#4C3BCF]/30 rounded-lg text-xs text-[#4C3BCF] font-semibold flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#4C3BCF] animate-pulse"></div>
-                  Live
-                </div>
+                <button className="flex items-center gap-2 px-3 py-1.5 text-xs bg-[#1a1a1a] hover:bg-[#222222] rounded-lg text-gray-400 transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <rect x="2" y="3" width="10" height="8" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                    <path d="M4 1V3M10 1V3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  </svg>
+                  <span>Live Data</span>
+                </button>
               </div>
-              
-              <div className="flex-1 flex items-center justify-center relative z-10">
-                {/* Radial Progress Rings */}
-                <div className="relative w-full max-w-[280px] aspect-square">
-                  {/* Center Stats */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <div className="text-5xl font-bold bg-gradient-to-br from-white to-gray-400 bg-clip-text text-transparent">
-                      {animatedPerformance.totalCount || 0}
+              <div className="flex-1 flex flex-col items-center justify-center pb-0 min-h-[400px]">
+                {/* Individual Status Circles */}
+                <div className="w-full max-w-[500px] flex flex-col gap-8 items-center justify-center">
+                  {/* Completed Circle */}
+                  <div className="flex items-center gap-6 w-full group">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] flex items-center justify-center shadow-lg shadow-[#4C3BCF]/30 transition-all duration-500 group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-[#4C3BCF]/50">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-white">{teamPerformanceData.completedCount || 0}</div>
+                          <div className="text-xs text-white/80 mt-1 font-medium">Completed</div>
+                        </div>
+                      </div>
+                      <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-green-500 border-4 border-[#0f0f0f] animate-pulse"></div>
                     </div>
-                    <div className="text-sm text-gray-400 mt-1">Total Tasks</div>
-                    <div className="flex items-center gap-2 mt-3">
-                      <TrendingUp className="h-3.5 w-3.5 text-green-400" />
-                      <span className="text-xs text-green-400 font-semibold">
-                        {animatedPerformance.totalCount > 0 ? Math.round((animatedPerformance.completedCount / animatedPerformance.totalCount) * 100) : 0}% Done
-                      </span>
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-gray-300 mb-1">Completed Tasks</div>
+                      <div className="text-xs text-gray-400">
+                        {teamPerformanceData.totalCount > 0 
+                          ? `${Math.round((teamPerformanceData.completedCount / teamPerformanceData.totalCount) * 100)}% of total tasks`
+                          : 'No tasks yet'}
+                      </div>
+                      <div className="mt-2 h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-[#4C3BCF] to-[#6B5CE6] rounded-full transition-all duration-700 ease-out"
+                          style={{ width: `${teamPerformanceData.totalCount > 0 ? (teamPerformanceData.completedCount / teamPerformanceData.totalCount) * 100 : 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* In Progress Circle */}
+                  <div className="flex items-center gap-6 w-full group">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#3B82F6] to-[#60A5FA] flex items-center justify-center shadow-lg shadow-[#3B82F6]/30 transition-all duration-500 group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-[#3B82F6]/50">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-white">{teamPerformanceData.inProgressCount || 0}</div>
+                          <div className="text-xs text-white/80 mt-1 font-medium">In Progress</div>
+                    </div>
+                      </div>
+                      <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-blue-500 border-4 border-[#0f0f0f] animate-pulse"></div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-gray-300 mb-1">In Progress Tasks</div>
+                      <div className="text-xs text-gray-400">
+                        {teamPerformanceData.totalCount > 0 
+                          ? `${Math.round((teamPerformanceData.inProgressCount / teamPerformanceData.totalCount) * 100)}% of total tasks`
+                          : 'No tasks yet'}
+                      </div>
+                      <div className="mt-2 h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-[#3B82F6] to-[#60A5FA] rounded-full transition-all duration-700 ease-out"
+                          style={{ width: `${teamPerformanceData.totalCount > 0 ? (teamPerformanceData.inProgressCount / teamPerformanceData.totalCount) * 100 : 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pending Circle */}
+                  <div className="flex items-center gap-6 w-full group">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#F59E0B] to-[#FBBF24] flex items-center justify-center shadow-lg shadow-[#F59E0B]/30 transition-all duration-500 group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-[#F59E0B]/50">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-white">{teamPerformanceData.pendingCount || 0}</div>
+                          <div className="text-xs text-white/80 mt-1 font-medium">Pending</div>
+                        </div>
+                      </div>
+                      <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-yellow-500 border-4 border-[#0f0f0f] animate-pulse"></div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-gray-300 mb-1">Pending Tasks</div>
+                      <div className="text-xs text-gray-400">
+                        {teamPerformanceData.totalCount > 0 
+                          ? `${Math.round((teamPerformanceData.pendingCount / teamPerformanceData.totalCount) * 100)}% of total tasks`
+                          : 'No tasks yet'}
+                      </div>
+                      <div className="mt-2 h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-[#F59E0B] to-[#FBBF24] rounded-full transition-all duration-700 ease-out"
+                          style={{ width: `${teamPerformanceData.totalCount > 0 ? (teamPerformanceData.pendingCount / teamPerformanceData.totalCount) * 100 : 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                    
+                {/* Footer */}
+                <div className="w-full mt-8 flex flex-col gap-2 text-sm px-2">
+                  <div className="flex items-center gap-2 leading-none font-medium text-gray-300">
+                    {teamPerformanceData.pendingCount > 0 ? (
+                      <>
+                        <TrendingUp className="h-4 w-4 text-yellow-400" />
+                        {teamPerformanceData.pendingCount} task{teamPerformanceData.pendingCount !== 1 ? 's' : ''} pending completion
+                      </>
+                    ) : (
+                      <>
+                        <TrendingUp className="h-4 w-4 text-green-400" />
+                        All tasks completed
+                      </>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-400 leading-none">
+                    {teamPerformanceData.totalCount > 0 ? (
+                      `Total: ${teamPerformanceData.totalCount} tasks • ${teamPerformanceData.completedCount} completed • ${teamPerformanceData.inProgressCount} in progress`
+                    ) : (
+                      'No tasks assigned yet'
+                    )}
+                </div>
+                    </div>
                     </div>
                   </div>
                   
-                  {/* SVG Radial Rings */}
-                  <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
-                    {/* Completed Ring (Outer) */}
-                    <circle cx="100" cy="100" r="85" fill="none" stroke="#1a1a1a" strokeWidth="12" />
-                    <circle 
-                      cx="100" cy="100" r="85" 
-                      fill="none" 
-                      stroke="url(#gradient-completed)" 
-                      strokeWidth="12" 
-                      strokeLinecap="round"
-                      strokeDasharray={`${2 * Math.PI * 85}`}
-                      strokeDashoffset={`${2 * Math.PI * 85 * (1 - (animatedPerformance.totalCount > 0 ? animatedPerformance.completedCount / animatedPerformance.totalCount : 0))}`}
-                      className="transition-all duration-300 ease-out"
-                    />
-                    
-                    {/* In Progress Ring (Middle) */}
-                    <circle cx="100" cy="100" r="65" fill="none" stroke="#1a1a1a" strokeWidth="12" />
-                    <circle 
-                      cx="100" cy="100" r="65" 
-                      fill="none" 
-                      stroke="url(#gradient-progress)" 
-                      strokeWidth="12" 
-                      strokeLinecap="round"
-                      strokeDasharray={`${2 * Math.PI * 65}`}
-                      strokeDashoffset={`${2 * Math.PI * 65 * (1 - (animatedPerformance.totalCount > 0 ? animatedPerformance.inProgressCount / animatedPerformance.totalCount : 0))}`}
-                      className="transition-all duration-300 ease-out"
-                    />
-                    
-                    {/* Pending Ring (Inner) */}
-                    <circle cx="100" cy="100" r="45" fill="none" stroke="#1a1a1a" strokeWidth="12" />
-                    <circle 
-                      cx="100" cy="100" r="45" 
-                      fill="none" 
-                      stroke="url(#gradient-pending)" 
-                      strokeWidth="12" 
-                      strokeLinecap="round"
-                      strokeDasharray={`${2 * Math.PI * 45}`}
-                      strokeDashoffset={`${2 * Math.PI * 45 * (1 - (animatedPerformance.totalCount > 0 ? animatedPerformance.pendingCount / animatedPerformance.totalCount : 0))}`}
-                      className="transition-all duration-300 ease-out"
-                    />
-                    
-                    {/* Gradients */}
-                    <defs>
-                      <linearGradient id="gradient-completed" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#4C3BCF" />
-                        <stop offset="100%" stopColor="#6B5CE6" />
-                      </linearGradient>
-                      <linearGradient id="gradient-progress" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#3B82F6" />
-                        <stop offset="100%" stopColor="#60A5FA" />
-                      </linearGradient>
-                      <linearGradient id="gradient-pending" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#F59E0B" />
-                        <stop offset="100%" stopColor="#FBBF24" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                </div>
+            {/* Pending Tasks */}
+            <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all duration-300 flex flex-col">
+              <div className="flex items-center justify-between mb-6 flex-shrink-0">
+                <h3 className="text-lg font-semibold">Pending Tasks</h3>
+                <button className="text-xs text-gray-400 hover:text-white transition-colors">View All</button>
               </div>
-              
-              {/* Legend with Stats */}
-              <div className="mt-6 grid grid-cols-3 gap-4 relative z-10">
-                <div className="text-center p-3 rounded-xl bg-[#4C3BCF]/10 border border-[#4C3BCF]/20 hover:bg-[#4C3BCF]/20 transition-all group">
-                  <div className="flex items-center justify-center gap-2 mb-1">
-                    <div className="w-2 h-2 rounded-full bg-gradient-to-r from-[#4C3BCF] to-[#6B5CE6]"></div>
-                    <span className="text-xs text-gray-400 group-hover:text-gray-300">Completed</span>
+              <div className="space-y-4 overflow-y-auto custom-scrollbar" style={{ maxHeight: '600px', minHeight: '500px' }}>
+                {isLoadingPendingTasks ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
+                    <p className="text-gray-400 text-sm">Loading pending tasks...</p>
                   </div>
-                  <div className="text-2xl font-bold text-white">{animatedPerformance.completedCount || 0}</div>
-                  <div className="text-xs text-[#4C3BCF] font-semibold mt-0.5">
-                    {animatedPerformance.totalCount > 0 ? Math.round((animatedPerformance.completedCount / animatedPerformance.totalCount) * 100) : 0}%
+                ) : pendingTasksForDisplay.length > 0 ? pendingTasksForDisplay.map((task, i) => (
+                  <div key={task.id || i} className="flex items-start gap-3 group pb-3 border-b border-[#1f1f1f]/30 last:border-0">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] flex items-center justify-center text-white text-xs font-semibold">
+                        {task.user?.charAt(0) || 'U'}
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-yellow-500 border-2 border-[#0f0f0f]"></div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-white">{task.user || 'Unassigned'}</span>
+                        <span className="text-xs text-gray-500">{task.time || 'Recently'}</span>
+                      </div>
+                      <p className="text-sm text-white leading-relaxed font-medium mb-1">{task.action || 'Untitled task'}</p>
+                      {task.description && (
+                        <p className="text-xs text-gray-400 leading-relaxed mb-2 line-clamp-2">{task.description}</p>
+                      )}
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <span className={`px-2 py-0.5 text-xs rounded-lg border ${
+                          task.status === 'pending_approval' 
+                            ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' 
+                            : 'bg-[#4C3BCF]/20 text-[#4C3BCF] border-[#4C3BCF]/30'
+                        }`}>
+                          {task.status === 'pending_approval' ? 'Pending Approval' : 'Pending'}
+                        </span>
+                        {task.priority && task.priority !== 'medium' && (
+                          <span className={`px-2 py-0.5 text-xs rounded-lg border ${
+                            task.priority === 'high' || task.priority === 'urgent'
+                              ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                              : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                          }`}>
+                            {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="text-center p-3 rounded-xl bg-[#3B82F6]/10 border border-[#3B82F6]/20 hover:bg-[#3B82F6]/20 transition-all group">
-                  <div className="flex items-center justify-center gap-2 mb-1">
-                    <div className="w-2 h-2 rounded-full bg-gradient-to-r from-[#3B82F6] to-[#60A5FA] animate-pulse"></div>
-                    <span className="text-xs text-gray-400 group-hover:text-gray-300">In Progress</span>
+                )) : (
+                  <div className="text-center py-12 text-gray-500 text-sm">
+                    <p className="mb-2">No pending tasks</p>
+                    <p className="text-xs text-gray-600">Tasks will appear here once created</p>
                   </div>
-                  <div className="text-2xl font-bold text-white">{animatedPerformance.inProgressCount || 0}</div>
-                  <div className="text-xs text-[#3B82F6] font-semibold mt-0.5">
-                    {animatedPerformance.totalCount > 0 ? Math.round((animatedPerformance.inProgressCount / animatedPerformance.totalCount) * 100) : 0}%
-                  </div>
-                </div>
-                
-                <div className="text-center p-3 rounded-xl bg-[#F59E0B]/10 border border-[#F59E0B]/20 hover:bg-[#F59E0B]/20 transition-all group">
-                  <div className="flex items-center justify-center gap-2 mb-1">
-                    <div className="w-2 h-2 rounded-full bg-gradient-to-r from-[#F59E0B] to-[#FBBF24]"></div>
-                    <span className="text-xs text-gray-400 group-hover:text-gray-300">Pending</span>
-                  </div>
-                  <div className="text-2xl font-bold text-white">{animatedPerformance.pendingCount || 0}</div>
-                  <div className="text-xs text-[#F59E0B] font-semibold mt-0.5">
-                    {animatedPerformance.totalCount > 0 ? Math.round((animatedPerformance.pendingCount / animatedPerformance.totalCount) * 100) : 0}%
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 
             {/* Bottlenecks & Insights */}
-            <div className="bg-gradient-to-br from-[#0f0f0f]/80 via-[#1a1a1a]/60 to-[#0f0f0f]/80 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-2xl p-6 hover:border-[#2a2a2a] transition-all duration-300 flex flex-col relative overflow-hidden">
-              <div className="absolute inset-0 opacity-20 pointer-events-none">
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-red-500/10 to-transparent rounded-full blur-3xl"></div>
-              </div>
+            <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all duration-300 flex flex-col">
               <div className="flex items-center justify-between mb-6 flex-shrink-0">
                 <h3 className="text-lg font-semibold">Bottlenecks & Insights</h3>
                 <div className="flex items-center gap-2">
@@ -3929,70 +3809,6 @@ export default function DemoDash() {
                     </div>
                     <p className="text-sm font-semibold text-green-400 mb-1">All Clear!</p>
                     <p className="text-xs text-gray-400">No bottlenecks detected. Team is working efficiently.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Second Row */}
-          <div className="grid grid-cols-2 gap-6 mb-8 items-stretch">
-            {/* Pending Tasks */}
-            <div className="bg-gradient-to-br from-[#0f0f0f]/80 via-[#1a1a1a]/60 to-[#0f0f0f]/80 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-2xl p-6 hover:border-[#2a2a2a] transition-all duration-300 flex flex-col relative overflow-hidden">
-              <div className="absolute inset-0 opacity-20 pointer-events-none">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-yellow-500/10 to-transparent rounded-full blur-3xl"></div>
-              </div>
-              <div className="flex items-center justify-between mb-6 flex-shrink-0 px-2">
-                <h3 className="text-lg font-semibold">Pending Tasks</h3>
-                <button className="text-xs text-gray-400 hover:text-white transition-colors">View All</button>
-              </div>
-              <div className="space-y-3 overflow-y-auto custom-scrollbar px-2" style={{ maxHeight: '600px', minHeight: '500px' }}>
-                {isLoadingPendingTasks ? (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
-                    <p className="text-gray-400 text-sm">Loading pending tasks...</p>
-                  </div>
-                ) : pendingTasksForDisplay.length > 0 ? pendingTasksForDisplay.map((task, i) => (
-                  <div key={task.id || i} className="flex items-start gap-3 group p-3 rounded-lg hover:bg-[#1a1a1a]/50 transition-all border-b border-[#1f1f1f]/30 last:border-0">
-                    <div className="relative flex-shrink-0">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] flex items-center justify-center text-white text-xs font-semibold">
-                        {task.user?.charAt(0) || 'U'}
-                      </div>
-                      <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-yellow-500 border-2 border-[#0f0f0f]"></div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm font-medium text-white">{task.user || 'Unassigned'}</span>
-                        <span className="text-xs text-gray-500">{task.time || 'Recently'}</span>
-                      </div>
-                      <p className="text-sm text-white leading-relaxed font-medium mb-1.5">{task.action || 'Untitled task'}</p>
-                      {task.description && (
-                        <p className="text-xs text-gray-400 leading-relaxed mb-2 line-clamp-2">{task.description}</p>
-                      )}
-                      <div className="mt-2 flex items-center gap-2 flex-wrap">
-                        <span className={`px-2.5 py-1 text-xs rounded-lg border ${
-                          task.status === 'pending_approval' 
-                            ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' 
-                            : 'bg-[#4C3BCF]/20 text-[#4C3BCF] border-[#4C3BCF]/30'
-                        }`}>
-                          {task.status === 'pending_approval' ? 'Pending Approval' : 'Pending'}
-                        </span>
-                        {task.priority && task.priority !== 'medium' && (
-                          <span className={`px-2.5 py-1 text-xs rounded-lg border ${
-                            task.priority === 'high' || task.priority === 'urgent'
-                              ? 'bg-red-500/20 text-red-400 border-red-500/30'
-                              : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-                          }`}>
-                            {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="text-center py-12 text-gray-500 text-sm">
-                    <p className="mb-2">No pending tasks</p>
-                    <p className="text-xs text-gray-600">Tasks will appear here once created</p>
                   </div>
                 )}
               </div>
@@ -4138,7 +3954,12 @@ export default function DemoDash() {
                 <span>Export</span>
               </button>
               <button 
-                onClick={() => setShowCreateModal(true)}
+                onClick={() => {
+                  if (!isProjectsPanelOpen) {
+                    toggleProjectsPanel();
+                  }
+                  setShowCreateModal(true);
+                }}
                 className="flex items-center gap-2 px-3 py-2 text-sm bg-white text-black hover:bg-gray-100 rounded-lg transition-all font-medium shadow-sm"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -4151,20 +3972,7 @@ export default function DemoDash() {
             <table className="w-full bg-transparent">
               <thead className="bg-transparent">
                 <tr className="border-b border-[#1f1f1f]/50 bg-transparent">
-                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedProjects.length === dashboardProjects.length && dashboardProjects.length > 0}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedProjects(dashboardProjects.map(p => p._id || p.id));
-                        } else {
-                          setSelectedProjects([]);
-                        }
-                      }}
-                      className="w-4 h-4 rounded border-[#2a2a2a] bg-[#0a0a0a] text-[#4C3BCF] focus:ring-[#4C3BCF] focus:ring-offset-0 cursor-pointer"
-                    />
-                  </th>
+                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent"></th>
                    <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Project name</th>
                    <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Assigned to</th>
                    <th className="text-left px-6 py-4 text-xs font-medium text-gray-500 bg-transparent">Status</th>
@@ -4246,23 +4054,10 @@ export default function DemoDash() {
                     gray: 'bg-gray-500/10 text-gray-400 border-gray-500/30'
                   };
                   
-                  const isSelected = selectedProjects.includes(projectId);
-                  
                   return (
-                  <tr key={i} className={`border-b border-[#1f1f1f]/50 bg-transparent hover:bg-[#0f0f0f]/50 transition-colors ${isSelected ? 'bg-[#4C3BCF]/5' : ''}`}>
+                  <tr key={i} className="border-b border-[#1f1f1f]/50 bg-transparent hover:bg-[#0f0f0f]/50 transition-colors">
                     <td className="px-6 py-4 bg-transparent">
-                        <input 
-                          type="checkbox" 
-                          checked={isSelected}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedProjects([...selectedProjects, projectId]);
-                            } else {
-                              setSelectedProjects(selectedProjects.filter(id => id !== projectId));
-                            }
-                          }}
-                          className="w-4 h-4 rounded border-[#2a2a2a] bg-[#0a0a0a] text-[#4C3BCF] focus:ring-[#4C3BCF] focus:ring-offset-0 cursor-pointer"
-                        />
+                        <input type="checkbox" className="w-4 h-4 rounded border-gray-500 bg-gray-700 cursor-not-allowed opacity-50" disabled />
                     </td>
                     <td className="px-6 py-4 text-sm font-medium bg-transparent">{project.name}</td>
                     <td className="px-6 py-4 bg-transparent">
@@ -4295,21 +4090,7 @@ export default function DemoDash() {
                       {project.updated_at ? new Date(project.updated_at).toLocaleDateString() : 'N/A'}
                     </td>
                     <td className="px-6 py-4 bg-transparent">
-                      <button 
-                        onClick={() => {
-                          selectProject(project);
-                          setActivePage('projects');
-                          if (!isProjectsPanelOpen) {
-                            toggleProjectsPanel();
-                          }
-                        }}
-                        className="text-sm text-[#4C3BCF] hover:text-[#6B5CE6] transition-colors font-medium flex items-center gap-1.5 group"
-                      >
-                        <span>Manage</span>
-                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="group-hover:translate-x-0.5 transition-transform">
-                          <path d="M6 12L10 8L6 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      </button>
+                      <button className="text-sm text-gray-400 hover:text-white transition-colors">Manage</button>
                     </td>
                   </tr>
                   );
@@ -4324,523 +4105,6 @@ export default function DemoDash() {
             </table>
           </div>
             </>
-          ) : activePage === 'analytics' ? (
-            /* Analytics Page */
-            <div className="space-y-6">
-              <div className="mb-8">
-                <h2 className="text-3xl font-bold mb-2">Analytics & Insights</h2>
-                <p className="text-gray-400 text-sm">Track team performance and project progress</p>
-              </div>
-
-              {/* Overview Stats */}
-              <div className="grid grid-cols-4 gap-5 mb-8">
-                <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm text-gray-400">Total Projects</p>
-                    <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" className="text-blue-400">
-                        <rect x="3" y="4" width="10" height="9" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-                      </svg>
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold">{dashboardProjects.length}</p>
-                </div>
-                <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm text-gray-400">Team Members</p>
-                    <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" className="text-purple-400">
-                        <circle cx="8" cy="6" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
-                        <path d="M3 13C3 11 5 9.5 8 9.5C11 9.5 13 11 13 13" stroke="currentColor" strokeWidth="1.5"/>
-                      </svg>
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold">{teamMembers.length}</p>
-                </div>
-                <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm text-gray-400">Completion Rate</p>
-                    <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center">
-                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" className="text-green-400">
-                        <path d="M4 8L7 11L12 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                      </svg>
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold">{pieChartData.completed}%</p>
-                </div>
-                <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 hover:bg-[#111111]/70 hover:border-[#2a2a2a] transition-all">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm text-gray-400">Weekly Velocity</p>
-                    <div className="w-10 h-10 bg-yellow-500/10 rounded-lg flex items-center justify-center">
-                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" className="text-yellow-400">
-                        <path d="M13 7L18 12L13 17M6 12H18" stroke="currentColor" strokeWidth="1.5"/>
-                      </svg>
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold">{dashboardStats.teamVelocity}</p>
-                </div>
-              </div>
-
-              {/* Ask Feeta AI */}
-              <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 mb-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] rounded-full flex items-center justify-center">
-                    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" className="text-white">
-                      <circle cx="6" cy="6" r="1" fill="currentColor"/>
-                      <circle cx="10" cy="6" r="1" fill="currentColor"/>
-                      <path d="M6 10C6 10 7 11 8 11C9 11 10 10 10 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold">Ask Feeta AI</h3>
-                    <p className="text-sm text-gray-400">Get instant insights about your projects and team</p>
-                  </div>
-                </div>
-                {(() => {
-                  const askFeeta = async () => {
-                    if (!chatInput.trim() || isAskingFeeta) return;
-                    const userMessage = { role: 'user', content: chatInput };
-                    setChatMessages(prev => [...prev, userMessage]);
-                    const currentInput = chatInput;
-                    setChatInput('');
-                    setIsAskingFeeta(true);
-                    try {
-                      const token = localStorage.getItem('token');
-                      const allProjectTasks = Object.values(projectTasks).flat();
-                      const contextData = {
-                        projects: dashboardProjects.map(p => ({
-                          name: p.name,
-                          created_at: p.created_at,
-                          task_count: (projectTasks[p._id || p.id] || []).length
-                        })),
-                        tasks: allProjectTasks.map(t => ({
-                          title: t.title,
-                          status: t.status,
-                          assigned_to: t.assigned_to,
-                          priority: t.priority,
-                          deadline: t.deadline
-                        })),
-                        team_members: teamMembers.map(m => ({
-                          name: m.name,
-                          role: m.role,
-                          skills: m.skills,
-                          idle_percentage: m.idle_percentage
-                        })),
-                        stats: {
-                          total_projects: dashboardProjects.length,
-                          total_tasks: allProjectTasks.length,
-                          completed_tasks: allProjectTasks.filter(t => t.status === 'completed').length,
-                          team_size: teamMembers.length
-                        }
-                      };
-                      const prompt = `You are Feeta AI, an intelligent project management assistant. Based on the following data, answer the user's question concisely and helpfully.\n\nCONTEXT DATA:\n${JSON.stringify(contextData, null, 2)}\n\nUSER QUESTION: ${currentInput}\n\nProvide a clear, actionable answer. If asked about specific projects, tasks, or team members, reference the actual data. Keep responses under 150 words.`;
-                      const response = await fetch(`${API_BASE_URL}/api/test-gemini`, {
-                        method: 'POST',
-                        headers: {
-                          'Authorization': `Bearer ${token}`,
-                          'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ prompt })
-                      });
-                      const data = await response.json();
-                      const aiResponse = data.response || 'Sorry, I could not process that request.';
-                      setChatMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
-                    } catch (error) {
-                      console.error('Error asking Feeta:', error);
-                      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
-                    } finally {
-                      setIsAskingFeeta(false);
-                    }
-                  };
-                  return (
-                    <div>
-                      <div className="mb-4 max-h-96 overflow-y-auto space-y-3">
-                        {chatMessages.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <p className="mb-4">👋 Hi! I'm Feeta AI. Ask me anything about your projects!</p>
-                            <div className="flex flex-wrap gap-2 justify-center">
-                              <button onClick={() => setChatInput('What tasks are overdue?')} className="px-3 py-1.5 bg-[#1a1a1a] hover:bg-[#222222] rounded-lg text-xs transition-colors">What tasks are overdue?</button>
-                              <button onClick={() => setChatInput('Who is the most productive team member?')} className="px-3 py-1.5 bg-[#1a1a1a] hover:bg-[#222222] rounded-lg text-xs transition-colors">Most productive member?</button>
-                              <button onClick={() => setChatInput('Which project needs attention?')} className="px-3 py-1.5 bg-[#1a1a1a] hover:bg-[#222222] rounded-lg text-xs transition-colors">Which project needs attention?</button>
-                            </div>
-                          </div>
-                        ) : (
-                          chatMessages.map((msg, idx) => (
-                            <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                              {msg.role === 'assistant' && (
-                                <div className="w-8 h-8 bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] rounded-full flex items-center justify-center flex-shrink-0">
-                                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-white">
-                                    <circle cx="6" cy="6" r="1" fill="currentColor"/>
-                                    <circle cx="10" cy="6" r="1" fill="currentColor"/>
-                                    <path d="M6 10C6 10 7 11 8 11C9 11 10 10 10 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                                  </svg>
-                                </div>
-                              )}
-                              <div className={`max-w-[80%] px-4 py-2 rounded-lg ${msg.role === 'user' ? 'bg-[#4C3BCF] text-white' : 'bg-[#1a1a1a] text-gray-200'}`}>
-                                <p 
-                                  className="text-sm whitespace-pre-wrap"
-                                  dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}
-                                />
-                              </div>
-                            </div>
-                          ))
-                        )}
-                        {isAskingFeeta && (
-                          <div className="flex gap-3 justify-start">
-                            <div className="w-8 h-8 bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] rounded-full flex items-center justify-center">
-                              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                            </div>
-                            <div className="px-4 py-2 bg-[#1a1a1a] rounded-lg">
-                              <p className="text-sm text-gray-400">Thinking...</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={chatInput}
-                          onChange={(e) => setChatInput(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && askFeeta()}
-                          placeholder="Ask about projects, tasks, team members..."
-                          disabled={isAskingFeeta}
-                          className="flex-1 px-4 py-3 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 outline-none focus:border-[#4C3BCF] transition-colors disabled:opacity-50"
-                        />
-                        <button
-                          onClick={askFeeta}
-                          disabled={!chatInput.trim() || isAskingFeeta}
-                          className="px-6 py-3 bg-gradient-to-r from-[#4C3BCF] to-[#6B5CE6] hover:from-[#4C3BCF]/90 hover:to-[#6B5CE6]/90 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white">
-                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Team Member Progress */}
-              <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 mb-8">
-                <h3 className="text-xl font-semibold mb-6">Team Member Progress</h3>
-                <div className="space-y-4">
-                  {teamMembers.length > 0 ? teamMembers.map((member, idx) => {
-                    const avatar = getCartoonAvatar(member.name || member.email);
-                    // Get all tasks from projectTasks
-                    const allProjectTasks = Object.values(projectTasks).flat();
-                    const memberTasks = allProjectTasks.filter(t => t.assigned_to === member.name);
-                    const completedTasks = memberTasks.filter(t => t.status === 'completed').length;
-                    const totalTasks = memberTasks.length;
-                    const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-                    
-                    return (
-                      <div key={idx} className="p-4 bg-[#1a1a1a]/50 rounded-lg hover:bg-[#1a1a1a] transition-all">
-                        <div className="flex items-center gap-4 mb-3">
-                          <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${avatar.bg} flex items-center justify-center text-2xl`}>
-                            {avatar.emoji}
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-white">{member.name || 'Unknown'}</h4>
-                            <p className="text-sm text-gray-400">{member.role || 'Developer'}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-2xl font-bold text-white">{completionRate}%</p>
-                            <p className="text-xs text-gray-400">Completion Rate</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-4 mb-3">
-                          <div className="text-center p-2 bg-[#0a0a0a] rounded-lg">
-                            <p className="text-lg font-bold text-blue-400">{totalTasks}</p>
-                            <p className="text-xs text-gray-400">Total Tasks</p>
-                          </div>
-                          <div className="text-center p-2 bg-[#0a0a0a] rounded-lg">
-                            <p className="text-lg font-bold text-green-400">{completedTasks}</p>
-                            <p className="text-xs text-gray-400">Completed</p>
-                          </div>
-                          <div className="text-center p-2 bg-[#0a0a0a] rounded-lg">
-                            <p className="text-lg font-bold text-yellow-400">{totalTasks - completedTasks}</p>
-                            <p className="text-xs text-gray-400">In Progress</p>
-                          </div>
-                        </div>
-                        <div className="h-2 bg-[#0a0a0a] rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-gradient-to-r from-[#4C3BCF] to-[#6B5CE6] rounded-full transition-all duration-500"
-                            style={{ width: `${completionRate}%` }}
-                          ></div>
-                        </div>
-                        {member.skills && member.skills.length > 0 && (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {member.skills.slice(0, 5).map((skill, i) => (
-                              <span key={i} className="px-2 py-1 bg-[#0a0a0a] text-xs rounded-lg text-gray-300">
-                                {skill}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }) : (
-                    <div className="text-center py-12 text-gray-500">
-                      <p>No team members yet. Add team members to see their progress.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* AI Chat Assistant */}
-              <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6 mb-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] rounded-full flex items-center justify-center">
-                    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" className="text-white">
-                      <rect x="3" y="3" width="10" height="10" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-                      <circle cx="6" cy="6" r="1" fill="currentColor"/>
-                      <circle cx="10" cy="6" r="1" fill="currentColor"/>
-                      <path d="M6 10C6 10 7 11 8 11C9 11 10 10 10 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold">Ask Feeta AI</h3>
-                    <p className="text-sm text-gray-400">Get instant insights about your projects and team</p>
-                  </div>
-                </div>
-                {(() => {
-                  const askFeeta = async () => {
-                    if (!chatInput.trim() || isAskingFeeta) return;
-
-                    const userMessage = { role: 'user', content: chatInput };
-                    setChatMessages(prev => [...prev, userMessage]);
-                    const currentInput = chatInput;
-                    setChatInput('');
-                    setIsAskingFeeta(true);
-
-                    try {
-                      const token = localStorage.getItem('token');
-                      
-                      // Gather context data
-                      const allProjectTasks = Object.values(projectTasks).flat();
-                      const contextData = {
-                        projects: dashboardProjects.map(p => ({
-                          name: p.name,
-                          created_at: p.created_at,
-                          task_count: (projectTasks[p._id || p.id] || []).length
-                        })),
-                        tasks: allProjectTasks.map(t => ({
-                          title: t.title,
-                          status: t.status,
-                          assigned_to: t.assigned_to,
-                          priority: t.priority,
-                          deadline: t.deadline
-                        })),
-                        team_members: teamMembers.map(m => ({
-                          name: m.name,
-                          role: m.role,
-                          skills: m.skills,
-                          idle_percentage: m.idle_percentage
-                        })),
-                        stats: {
-                          total_projects: dashboardProjects.length,
-                          total_tasks: allProjectTasks.length,
-                          completed_tasks: allProjectTasks.filter(t => t.status === 'completed').length,
-                          team_size: teamMembers.length
-                        }
-                      };
-
-                      const prompt = `You are Feeta AI, an intelligent project management assistant. Based on the following data, answer the user's question concisely and helpfully.\n\nCONTEXT DATA:\n${JSON.stringify(contextData, null, 2)}\n\nUSER QUESTION: ${currentInput}\n\nProvide a clear, actionable answer. If asked about specific projects, tasks, or team members, reference the actual data. Keep responses under 150 words.`;
-
-                      // Use existing backend Gemini endpoint
-                      const response = await fetch(`${API_BASE_URL}/api/test-gemini`, {
-                        method: 'POST',
-                        headers: {
-                          'Authorization': `Bearer ${token}`,
-                          'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ prompt })
-                      });
-
-                      const data = await response.json();
-                      const aiResponse = data.response || 'Sorry, I could not process that request.';
-                      
-                      setChatMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
-                    } catch (error) {
-                      console.error('Error asking Feeta:', error);
-                      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
-                    } finally {
-                      setIsAskingFeeta(false);
-                    }
-                  };
-
-                  return (
-                    <div>
-                      {/* Chat Messages */}
-                      <div className="mb-4 max-h-96 overflow-y-auto space-y-3">
-                        {chatMessages.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <p className="mb-4">👋 Hi! I'm Feeta AI. Ask me anything about your projects!</p>
-                            <div className="flex flex-wrap gap-2 justify-center">
-                              <button onClick={() => setChatInput('What tasks are overdue?')} className="px-3 py-1.5 bg-[#1a1a1a] hover:bg-[#222222] rounded-lg text-xs transition-colors">What tasks are overdue?</button>
-                              <button onClick={() => setChatInput('Who is the most productive team member?')} className="px-3 py-1.5 bg-[#1a1a1a] hover:bg-[#222222] rounded-lg text-xs transition-colors">Most productive member?</button>
-                              <button onClick={() => setChatInput('Which project needs attention?')} className="px-3 py-1.5 bg-[#1a1a1a] hover:bg-[#222222] rounded-lg text-xs transition-colors">Which project needs attention?</button>
-                            </div>
-                          </div>
-                        ) : (
-                          chatMessages.map((msg, idx) => (
-                            <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                              {msg.role === 'assistant' && (
-                                <div className="w-8 h-8 bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] rounded-full flex items-center justify-center flex-shrink-0">
-                                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-white">
-                                    <circle cx="6" cy="6" r="1" fill="currentColor"/>
-                                    <circle cx="10" cy="6" r="1" fill="currentColor"/>
-                                    <path d="M6 10C6 10 7 11 8 11C9 11 10 10 10 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                                  </svg>
-                                </div>
-                              )}
-                              <div className={`max-w-[80%] px-4 py-2 rounded-lg ${msg.role === 'user' ? 'bg-[#4C3BCF] text-white' : 'bg-[#1a1a1a] text-gray-200'}`}>
-                                <p 
-                                  className="text-sm whitespace-pre-wrap"
-                                  dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}
-                                />
-                              </div>
-                            </div>
-                          ))
-                        )}
-                        {isAskingFeeta && (
-                          <div className="flex gap-3 justify-start">
-                            <div className="w-8 h-8 bg-gradient-to-br from-[#4C3BCF] to-[#6B5CE6] rounded-full flex items-center justify-center">
-                              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                            </div>
-                            <div className="px-4 py-2 bg-[#1a1a1a] rounded-lg">
-                              <p className="text-sm text-gray-400">Thinking...</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Input */}
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={chatInput}
-                          onChange={(e) => setChatInput(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && askFeeta()}
-                          placeholder="Ask about projects, tasks, team members..."
-                          disabled={isAskingFeeta}
-                          className="flex-1 px-4 py-3 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 outline-none focus:border-[#4C3BCF] transition-colors disabled:opacity-50"
-                        />
-                        <button
-                          onClick={askFeeta}
-                          disabled={!chatInput.trim() || isAskingFeeta}
-                          className="px-6 py-3 bg-gradient-to-r from-[#4C3BCF] to-[#6B5CE6] hover:from-[#4C3BCF]/90 hover:to-[#6B5CE6]/90 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white">
-                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Project Analytics */}
-              <div className="bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl p-6">
-                <h3 className="text-xl font-semibold mb-6">Project Analytics</h3>
-                <div className="space-y-4">
-                  {dashboardProjects.length > 0 ? dashboardProjects.map((project, idx) => {
-                    const projectId = project._id || project.id;
-                    const tasks = projectTasks[projectId] || [];
-                    const completedTasks = tasks.filter(t => t.status === 'completed').length;
-                    const totalTasks = tasks.length;
-                    const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-                    const inProgressTasks = tasks.filter(t => t.status === 'approved' || t.status === 'in_progress').length;
-                    const pendingTasks = tasks.filter(t => t.status === 'pending' || t.status === 'pending_approval').length;
-                    
-                    return (
-                      <div key={idx} className="p-4 bg-[#1a1a1a]/50 rounded-lg hover:bg-[#1a1a1a] transition-all">
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <h4 className="font-semibold text-white text-lg">{project.name}</h4>
-                            <p className="text-sm text-gray-400">Created {project.created_at ? new Date(project.created_at).toLocaleDateString() : 'N/A'}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-2xl font-bold text-white">{completionRate}%</p>
-                            <p className="text-xs text-gray-400">Complete</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-4 gap-3 mb-3">
-                          <div className="text-center p-2 bg-[#0a0a0a] rounded-lg">
-                            <p className="text-lg font-bold text-white">{totalTasks}</p>
-                            <p className="text-xs text-gray-400">Total</p>
-                          </div>
-                          <div className="text-center p-2 bg-[#0a0a0a] rounded-lg">
-                            <p className="text-lg font-bold text-green-400">{completedTasks}</p>
-                            <p className="text-xs text-gray-400">Done</p>
-                          </div>
-                          <div className="text-center p-2 bg-[#0a0a0a] rounded-lg">
-                            <p className="text-lg font-bold text-blue-400">{inProgressTasks}</p>
-                            <p className="text-xs text-gray-400">Active</p>
-                          </div>
-                          <div className="text-center p-2 bg-[#0a0a0a] rounded-lg">
-                            <p className="text-lg font-bold text-yellow-400">{pendingTasks}</p>
-                            <p className="text-xs text-gray-400">Pending</p>
-                          </div>
-                        </div>
-                        <div className="h-2 bg-[#0a0a0a] rounded-full overflow-hidden">
-                          <div className="h-full flex">
-                            <div 
-                              className="bg-green-500 transition-all duration-500"
-                              style={{ width: `${totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0}%` }}
-                            ></div>
-                            <div 
-                              className="bg-blue-500 transition-all duration-500"
-                              style={{ width: `${totalTasks > 0 ? (inProgressTasks / totalTasks) * 100 : 0}%` }}
-                            ></div>
-                            <div 
-                              className="bg-yellow-500 transition-all duration-500"
-                              style={{ width: `${totalTasks > 0 ? (pendingTasks / totalTasks) * 100 : 0}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }) : (
-                    <div className="text-center py-12 text-gray-500">
-                      <p>No projects yet. Create a project to see analytics.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : activePage === 'ai-operator' ? (
-            /* AI Operator Dashboard */
-            <div className="space-y-6">
-              <div className="mb-8">
-                <h2 className="text-3xl font-bold mb-2">🤖 Feeta AI Operator</h2>
-                <p className="text-gray-400 text-sm">Your autonomous project manager with intelligent automation</p>
-              </div>
-
-              {selectedProject && (
-                <div className="mb-6 p-4 bg-[#0f0f0f]/60 backdrop-blur-xl border border-[#1f1f1f]/50 rounded-xl">
-                  <p className="text-sm text-gray-400">Active Project:</p>
-                  <p className="text-lg font-semibold text-white">{selectedProject.name}</p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-3 gap-6 mb-6">
-                <IntentActionPanel projectId={selectedProject?._id} />
-                <FeetaActivityStream />
-                <AutopilotPanel />
-              </div>
-
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <ClarifyingQuestionsCenter />
-                <AutoAssignmentIntelligence />
-              </div>
-
-              <div className="grid grid-cols-1 gap-6">
-                <FeetaSummaries />
-              </div>
-            </div>
           ) : activePage === 'projects' ? (
             /* Projects View - Chat Interface */
             <>
@@ -5030,24 +4294,14 @@ export default function DemoDash() {
         </div>
       )}
     </div>
-    <div className="space-y-3 mt-4">
+    <div className="space-y-1">
       {msg.plan.subtasks?.map((task, i) => (
         <div
           key={i}
-          className="group bg-[#0f0f0f]/80 backdrop-blur-sm border border-[#1f1f1f]/50 rounded-xl p-4 hover:bg-[#111111]/90 hover:border-[#2a2a2a] transition-all duration-200"
+          className="text-sm text-gray-400 pl-4 border-l-2 border-gray-700 bg-[#1a1a1a] p-3 rounded-lg"
         >
-          <div className="flex items-start gap-3 mb-3">
-            <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-[#4C3BCF]/20 to-[#6B5CE6]/20 border border-[#4C3BCF]/30 flex items-center justify-center">
-              <span className="text-sm font-bold text-[#4C3BCF]">{i + 1}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-semibold text-white leading-tight mb-2">{task.title || task.task}</h4>
-              {task.description && (
-                <p className="text-xs text-gray-400 leading-relaxed">{task.description}</p>
-              )}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="font-medium text-gray-300 flex items-center justify-between">
+            <span>{i + 1}. {task.title || task.task}</span>
             <div className="flex items-center gap-2 text-xs">
               {task.timeline && (
                 <span className="text-[#4C3BCF]">⏱️ {task.timeline}</span>
@@ -5626,7 +4880,7 @@ export default function DemoDash() {
           <div className="bg-[#0f0f0f]/80 backdrop-blur-2xl border border-[#2a2a2a]/50 rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-xl font-semibold text-white">Review & Approve Tasks</h3>
+                <h3 className="text-xl font-semibold">Review & Approve Tasks</h3>
                 <p className="text-sm text-gray-400 mt-1">{pendingTasks.length} tasks pending approval</p>
               </div>
               <button
@@ -5684,7 +4938,7 @@ export default function DemoDash() {
                   <div key={task.id} className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <h4 className="font-semibold text-sm mb-1 text-white">{task.title}</h4>
+                        <h4 className="font-semibold text-sm mb-1">{task.title}</h4>
                         <p className="text-xs text-gray-400 mb-2">{task.description}</p>
                         <div className="flex items-center gap-3 text-xs text-gray-500">
                           {task.deadline && (

@@ -1,5 +1,6 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
+import AnalyticsTracker from "@/components/AnalyticsTracker";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -50,21 +51,9 @@ export default function RootLayout({ children }) {
         <link rel="icon" href="/Images/F.png" />
         <link rel="apple-touch-icon" href="/Images/F.png" />
         <meta name="theme-color" content="#4C3BCF" />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://Feeta.ch/" />
-        <meta property="og:title" content="Feeta | Autonomous AI Project Manager" />
-        <meta property="og:description" content="Stop burning cash on inefficiency. Feeta is an AI Project Manager that automates tasks, eliminates stand-ups, and reclaims your team's lost time." />
-        <meta property="og:image" content="https://Feeta.ch/Images/F.png" />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="628" />
-        <meta property="og:image:alt" content="Feeta - AI Operational Co-Pilot" />
-        <meta name="twitter:url" content="https://Feeta.ch/" />
-        <meta name="twitter:title" content="Feeta | Autonomous AI Project Manager" />
-        <meta name="twitter:description" content="Stop burning cash on inefficiency. Feeta is an AI Project Manager that automates tasks, eliminates stand-ups, and reclaims your team's lost time." />
-        <meta name="twitter:image" content="https://Feeta.ch/Images/F.png" />
-        <meta name="twitter:card" content="summary_large_image" />
       </head>
       <body className="font-inter antialiased">
+        <AnalyticsTracker />
         {children}
       </body>
     </html>

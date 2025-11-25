@@ -44,9 +44,13 @@ function LoginForm() {
         return;
       }
 
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      window.location.href = '/demodash';
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        window.location.href = '/demodash';
+      } else {
+        throw new Error('No token received');
+      }
     } catch (err) {
       console.error('Login error:', err);
       setError(`Connection error: ${err.message}. Make sure backend is running on ${API_BASE_URL} and you've accepted the SSL certificate`);

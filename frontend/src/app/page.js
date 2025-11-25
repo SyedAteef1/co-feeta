@@ -9,7 +9,8 @@ export default function Home() {
   useEffect(() => {
     // Check if user is authenticated
     const token = localStorage.getItem('token');
-    if (token) {
+    // Ensure token is valid and not the string "undefined" or "null"
+    if (token && token !== 'undefined' && token !== 'null') {
       // Redirect authenticated users to dashboard
       router.push('/demodash');
     }
@@ -17,7 +18,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen font-inter bg-white">
-      <ModernHome/>
+      <ModernHome />
     </div>
   )
 }

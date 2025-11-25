@@ -5,19 +5,25 @@ import tempfile
 from bson import ObjectId
 import json
 import re
-import requests
 import PyPDF2
 from docx import Document
 from datetime import datetime
 import jwt
 import logging
+import vertexai
+from vertexai.generative_models import GenerativeModel
 
 from app.database.mongodb import get_db
 
 teams_bp = Blueprint('teams', __name__)
 logger = logging.getLogger(__name__)
 JWT_SECRET = os.getenv('FLASK_SECRET', 'change_this_secret')
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+GCP_PROJECT_ID = os.getenv('GCP_PROJECT_ID')
+GCP_LOCATION = os.getenv('GCP_LOCATION', 'us-central1')
+
+# Initialize Vertex AI
+if GCP_PROJECT_ID:
+    vertexai.init(project=GCP_PROJECT_ID, location=GCP_LOCATION)
 
 def extract_text_from_pdf(file_path):
     """Extract text from PDF file"""
@@ -101,14 +107,14 @@ def parse_json_from_text(text, context="resume analysis"):
 
 
 def analyze_resume_with_ai(resume_text):
-    """Analyze resume using Gemini AI via REST API"""
+    """Analyze resume using Vertex AI Gemini"""
     try:
         if not resume_text or not resume_text.strip():
             logger.error("❌ Empty resume text provided")
             return None
         
-        if not GEMINI_API_KEY:
-            logger.error("❌ GEMINI_API_KEY not configured")
+        if not GCP_PROJECT_ID:
+            logger.error("❌ GCP_PROJECT_ID not configured")
             return None
         
         logger.info(f"🤖 Starting resume analysis (text length: {len(resume_text)} chars)")
@@ -132,50 +138,20 @@ CRITICAL: Return ONLY valid JSON. No markdown, no code blocks, no extra text. Do
 
 Return valid JSON:"""
         
-        logger.info("🚀 Calling Gemini API for resume analysis...")
-        api_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent'
+        logger.info("🚀 Calling Vertex AI Gemini for resume analysis...")
         
-        response = requests.post(
-            api_url,
-            headers={'Content-Type': 'application/json'},
-            params={'key': GEMINI_API_KEY},
-            json={
-                'contents': [{'parts': [{'text': prompt}]}],
-                'generationConfig': {
-                    'temperature': 0.3,
-                    'maxOutputTokens': 2048
-                }
-            },
-            timeout=60
+        model = GenerativeModel("gemini-2.0-flash-exp")
+        response = model.generate_content(
+            prompt,
+            generation_config={
+                'temperature': 0.3,
+                'max_output_tokens': 2048
+            }
         )
         
-        logger.info(f"✅ Gemini Response Status: {response.status_code}")
+        logger.info("✅ Vertex AI response received")
         
-        if response.status_code != 200:
-            logger.error(f"❌ Gemini API returned status {response.status_code}")
-            logger.error(f"Response: {response.text[:500]}")
-            return None
-        
-        data = response.json()
-        logger.info(f"📦 Response Keys: {list(data.keys())}")
-        
-        # Check for errors in response
-        if 'error' in data:
-            error_msg = data['error'].get('message', 'Unknown error')
-            logger.error(f"❌ Gemini API Error: {error_msg}")
-            return None
-        
-        # Check if candidates exist
-        if 'candidates' not in data or not data.get('candidates'):
-            logger.error(f"❌ No candidates in response. Full response: {json.dumps(data)[:500]}")
-            if 'promptFeedback' in data:
-                feedback = data['promptFeedback']
-                logger.error(f"⚠️ Prompt Feedback: {json.dumps(feedback)}")
-                if 'blockReason' in feedback:
-                    logger.error(f"❌ Content blocked: {feedback['blockReason']}")
-            return None
-        
-        text = data['candidates'][0]['content']['parts'][0]['text']
+        text = response.text
         logger.info(f"✅ Gemini Response received ({len(text)} chars)")
         logger.info(f"📝 Response preview: {text[:200]}...")
         
@@ -212,10 +188,6 @@ Return valid JSON:"""
         logger.info(f"✅ Resume analysis complete: {result.get('name')}, {len(result.get('skills', []))} skills")
         return result
         
-    except requests.exceptions.RequestException as e:
-        logger.error(f"❌ Network error calling Gemini API: {str(e)}")
-        logger.exception("Full traceback:")
-        return None
     except json.JSONDecodeError as e:
         logger.error(f"❌ JSON parsing error: {str(e)}")
         if 'text' in locals():
@@ -315,16 +287,17 @@ def preview_resume():
         os.remove(file_path)
         os.rmdir(temp_dir)
         
-        # Quick AI analysis for suggested roles
+        # Quick AI analysis for suggested roles and name
         analysis = analyze_resume_with_ai(resume_text)
         
         return jsonify({
-            'suggested_roles': analysis.get('selected_roles', []) if analysis else []
+            'suggested_roles': analysis.get('selected_roles', []) if analysis else [],
+            'name': analysis.get('name', '') if analysis else ''
         })
         
     except Exception as e:
         print(f"Preview error: {e}")
-        return jsonify({'suggested_roles': []})
+        return jsonify({'suggested_roles': [], 'name': ''})
 
 @teams_bp.route('/api/teams/members', methods=['POST'])
 def add_member():
@@ -341,6 +314,7 @@ def add_member():
         
         # Handle form data
         email = request.form.get('email', '')
+        manual_name = request.form.get('name', '')
         selected_roles = json.loads(request.form.get('selected_roles', '[]'))
         
         # Process resume if provided
@@ -352,6 +326,10 @@ def add_member():
             'capacity': 40,
             'created_at': datetime.utcnow()
         }
+        
+        # Use manual name if provided
+        if manual_name:
+            member_data['name'] = manual_name
         
         if 'resume' in request.files:
             file = request.files['resume']
@@ -374,8 +352,11 @@ def add_member():
             # AI analysis
             analysis = analyze_resume_with_ai(resume_text)
             if analysis:
+                # Only use AI name if manual name not provided
+                if not manual_name:
+                    member_data['name'] = analysis.get('name', '')
+                
                 member_data.update({
-                    'name': analysis.get('name', ''),
                     'role': analysis.get('role', ''),
                     'skills': analysis.get('skills', []),
                     'experience_years': analysis.get('experience_years', 0),

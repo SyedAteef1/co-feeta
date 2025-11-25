@@ -15,6 +15,7 @@ export default function TeamsPage() {
   const [suggestedRoles, setSuggestedRoles] = useState([]);
   const [processingResume, setProcessingResume] = useState(false);
   const [editingWorkload, setEditingWorkload] = useState(null);
+  const [extractedName, setExtractedName] = useState('');
 
   useEffect(() => {
     fetchAllMembers();
@@ -382,6 +383,9 @@ export default function TeamsPage() {
                       if (data.suggested_roles) {
                         setSuggestedRoles(data.suggested_roles);
                       }
+                      if (data.name) {
+                        setExtractedName(data.name);
+                      }
                     } catch (err) {
                       console.error('Preview failed:', err);
                     }
@@ -392,6 +396,20 @@ export default function TeamsPage() {
                 <p className="text-xs text-gray-500 mt-1">
                   {processingResume ? '⏳ AI analyzing resume...' : '✨ AI will extract skills, role, and suggest matching roles'}
                 </p>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">
+                  Name
+                  {extractedName && <span className="text-xs text-green-400 ml-2">✨ AI extracted</span>}
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Full Name"
+                  defaultValue={extractedName}
+                  className="w-full bg-[#111111] border border-[#1a1a1a] rounded-lg px-4 py-3 focus:outline-none focus:border-[#2a2a2a]"
+                />
               </div>
 
               <div>
@@ -433,6 +451,7 @@ export default function TeamsPage() {
                   onClick={() => {
                     setShowAddModal(false);
                     setSuggestedRoles([]);
+                    setExtractedName('');
                   }}
                   className="flex-1 px-4 py-3 bg-[#111111] hover:bg-[#1a1a1a] rounded-lg font-medium transition-colors"
                 >

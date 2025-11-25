@@ -1,0 +1,25 @@
+﻿    <div className="space-y-1">
+      {msg.plan.subtasks?.map((task, i) => (
+        <div
+          key={i}
+          className="text-sm text-gray-400 pl-4 border-l-2 border-gray-700 bg-[#1a1a1a] p-3 rounded-lg"
+        >
+          <div className="font-medium text-gray-300 flex items-center justify-between">
+            <span>{i + 1}. {task.title || task.task}</span>
+            <div className="flex items-center gap-2 text-xs">
+              {task.timeline && (
+                <span className="text-[#4C3BCF]">â±ï¸ {task.timeline}</span>
+              )}
+              {task.deadline && (
+                <span className="text-orange-400">ðŸ“… {new Date(task.deadline).toLocaleDateString()}</span>
+              )}
+            </div>
+          </div>
+          {task.role && (
+            <div className="text-xs text-[#4C3BCF] mt-1">ðŸ‘¤ {task.role}</div>
+          )}
+          {task.assigned_to && task.assigned_to !== 'Unassigned' && (
+            <div className="text-xs text-[#4C3BCF] mt-1">ðŸ‘¥ Assigned to: {task.assigned_to}</div>
+          )}
+          {task.estimated_hours && (
+            <div className="text-xs text-yellow-400 mt-1">â° Estimated: {task.

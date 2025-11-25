@@ -11,3 +11,4 @@ python-docx==1.1.0
 google-cloud-aiplatform
 uvicorn==0.24.0
 gunicorn==21.2.0
+Flask-Mail==0.9.1
