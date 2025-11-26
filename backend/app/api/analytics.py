@@ -204,21 +204,25 @@ def track_visit():
         
         # Basic validation
         if not data:
+            print('[Analytics] ❌ No data provided')
             return jsonify({'error': 'No data provided'}), 400
             
         db = get_db()
         if db is None:
+            print('[Analytics] ❌ Database not available')
             return jsonify({'error': 'Database connection not available'}), 503
         
         visit_data = {
-            'user_id': data.get('user_id'), # Optional, if logged in
+            'user_id': data.get('user_id'),
             'path': data.get('path'),
             'referrer': data.get('referrer'),
-            'duration': data.get('duration', 0), # Seconds
+            'duration': data.get('duration', 0),
             'timestamp': datetime.utcnow(),
             'user_agent': request.headers.get('User-Agent'),
-            'ip': request.remote_addr # simplistic IP tracking
+            'ip': request.remote_addr
         }
+        
+        print(f'[Analytics] ✅ Tracking: {visit_data["path"]} | User: {visit_data["user_id"] or "Anonymous"} | Duration: {visit_data["duration"]}s')
         
         db.site_visits.insert_one(visit_data)
         
@@ -231,15 +235,48 @@ def track_visit():
 @analytics_bp.route('/analytics/founder', methods=['GET'])
 def get_founder_insights():
     """Get aggregated analytics for the founder dashboard"""
-    # In a real app, you'd want strong auth here. 
-    # For now, we rely on the secret URL concept, but adding a simple check is good practice.
-    # secret_key = request.args.get('key')
-    # if secret_key != 'some_secret': return jsonify({'error': 'Unauthorized'}), 401
+    import os
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    # Detect environment
+    is_local = request.remote_addr in ['127.0.0.1', 'localhost', '::1'] or request.host.startswith('localhost')
+    env = 'LOCAL' if is_local else 'DEPLOYMENT'
+    
+    # Log access details
+    access_log = {
+        'environment': env,
+        'timestamp': datetime.utcnow().isoformat(),
+        'ip': request.remote_addr,
+        'host': request.host,
+        'user_agent': request.headers.get('User-Agent'),
+        'referer': request.headers.get('Referer'),
+        'origin': request.headers.get('Origin')
+    }
+    
+    logger.warning(f"🔍 [{env}] FOUNDER ANALYTICS ACCESS | IP: {access_log['ip']} | Host: {access_log['host']} | UA: {access_log['user_agent'][:50] if access_log['user_agent'] else 'None'}")
+    print(f"\n{'='*80}")
+    print(f"🚨 FOUNDER ANALYTICS ACCESSED - {env}")
+    print(f"{'='*80}")
+    print(f"⏰ Time: {access_log['timestamp']}")
+    print(f"🌐 IP Address: {access_log['ip']}")
+    print(f"🏠 Host: {access_log['host']}")
+    print(f"🔗 Origin: {access_log['origin']}")
+    print(f"📱 User Agent: {access_log['user_agent']}")
+    print(f"🔙 Referer: {access_log['referer']}")
+    print(f"{'='*80}\n")
     
     try:
         db = get_db()
         if db is None:
             return jsonify({'error': 'Database connection not available'}), 503
+        
+        # Store access log in database
+        try:
+            db.founder_analytics_access.insert_one(access_log)
+        except Exception as log_err:
+            logger.error(f"Failed to log access: {log_err}")
             
         # Time ranges
         now = datetime.utcnow()
@@ -293,6 +330,52 @@ def get_founder_insights():
             'top_pages': formatted_pages,
             'top_sources': formatted_sources,
             'recent_activity': formatted_activity
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Founder analytics error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@analytics_bp.route('/analytics/founder/access-logs', methods=['GET'])
+def get_founder_access_logs():
+    """View who has accessed the founder analytics - LOCAL vs DEPLOYMENT"""
+    try:
+        db = get_db()
+        if db is None:
+            return jsonify({'error': 'Database connection not available'}), 503
+        
+        # Get all access logs
+        logs = list(db.founder_analytics_access.find().sort('timestamp', -1).limit(100))
+        
+        # Separate by environment
+        local_accesses = []
+        deployment_accesses = []
+        
+        for log in logs:
+            log_entry = {
+                'timestamp': log.get('timestamp'),
+                'ip': log.get('ip'),
+                'host': log.get('host'),
+                'user_agent': log.get('user_agent'),
+                'referer': log.get('referer'),
+                'origin': log.get('origin')
+            }
+            
+            if log.get('environment') == 'LOCAL':
+                local_accesses.append(log_entry)
+            else:
+                deployment_accesses.append(log_entry)
+        
+        return jsonify({
+            'total_accesses': len(logs),
+            'local_accesses': {
+                'count': len(local_accesses),
+                'logs': local_accesses
+            },
+            'deployment_accesses': {
+                'count': len(deployment_accesses),
+                'logs': deployment_accesses
+            }
         }), 200
         
     except Exception as e:

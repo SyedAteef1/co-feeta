@@ -931,22 +931,49 @@
               </div>
               
               <h3 className="text-5xl font-bold mb-7 leading-tight tracking-tight">
-                Intelligent Developer Guidance
+                Context Aware.
               </h3>
               
               <p className="text-gray-400 text-lg mb-10 leading-relaxed">
-  When your team hits a roadblock, Feeta offers contextual technical guidance drawn from project history—helping developers solve issues quickly without creating dependency or technical debt.</p>
+                Feeta has real-time knowledge of what's currently happening in your workspace, so you can talk to it like a coworker.
+              </p>
 
-              <div className="flex flex-wrap gap-3">
-                <button className="bg-[#0a0a0a] border border-gray-700 hover:border-gray-600 px-5 py-2 rounded-lg text-sm font-medium transition-colors">
-  Context-Aware
-                </button>
-                <button className="bg-[#0a0a0a] border border-gray-700 hover:border-gray-600 px-5 py-2 rounded-lg text-sm font-medium transition-colors">
-  Lightweight Help
-                </button>
-                <button className="bg-[#0a0a0a] border border-gray-700 hover:border-gray-600 px-5 py-2 rounded-lg text-sm font-medium transition-colors">
-  Faster Delivery
-                </button>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+                <div className="bg-gradient-to-br from-gray-900/50 to-black border border-gray-800 rounded-xl p-5 flex flex-col aspect-square">
+                  <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center mb-3">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <h4 className="text-white font-semibold mb-2 text-sm">Real-time Search</h4>
+                  <p className="text-gray-400 text-xs leading-relaxed">
+                    Feeta can search across all your connected integrations to find documents, emails, and more.
+                  </p>
+                </div>
+
+                <div className="bg-gradient-to-br from-gray-900/50 to-black border border-gray-800 rounded-xl p-5 flex flex-col aspect-square">
+                  <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center mb-3">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                  </div>
+                  <h4 className="text-white font-semibold mb-2 text-sm">Spatial Awareness</h4>
+                  <p className="text-gray-400 text-xs leading-relaxed">
+                    Feeta understands what you're working on across your entire workspace, connecting everything into a living map.
+                  </p>
+                </div>
+
+                <div className="bg-gradient-to-br from-gray-900/50 to-black border border-gray-800 rounded-xl p-5 flex flex-col aspect-square">
+                  <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center mb-3">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <h4 className="text-white font-semibold mb-2 text-sm">Memory</h4>
+                  <p className="text-gray-400 text-xs leading-relaxed">
+                    Feeta continuously learns from your interactions to understand how you work and anticipate your needs.
+                  </p>
+                </div>
               </div>
             </div>
 

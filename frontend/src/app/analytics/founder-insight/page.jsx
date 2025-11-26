@@ -15,9 +15,11 @@ export default function FounderAnalytics() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:5000';
+    
     const fetchData = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://localhost:5000'}/api/analytics/founder`);
+        const res = await fetch(`${API_URL}/api/analytics/founder`);
         if (!res.ok) throw new Error('Failed to fetch analytics');
         const json = await res.json();
         setData(json);
@@ -29,7 +31,6 @@ export default function FounderAnalytics() {
     };
 
     fetchData();
-    // Refresh every 30 seconds for "live" feel
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, []);

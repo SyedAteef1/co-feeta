@@ -11,48 +11,68 @@ export default function AnalyticsTracker() {
 
   // Capture referrer only once on initial load
   useEffect(() => {
+    console.log('[Analytics] AnalyticsTracker mounted!');
     if (typeof document !== 'undefined') {
       referrerRef.current = document.referrer || 'Direct';
     }
   }, []);
 
   useEffect(() => {
-    // Reset start time on path change
     startTimeRef.current = Date.now();
     const currentPath = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : '');
 
-    // Function to send data
-    const sendData = (duration) => {
-      // Don't track if duration is negligible (e.g. rapid redirects)
-      if (duration < 100) return;
+    let userId = null;
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      userId = user.id || null;
+    } catch (e) {}
 
-      const payload = {
-        path: currentPath,
-        referrer: referrerRef.current,
-        duration: duration / 1000, // Convert to seconds
-        user_id: localStorage.getItem('user_id'), // Simple check if user is logged in
-      };
+    // Track page entry immediately
+    const entryPayload = {
+      path: currentPath,
+      referrer: referrerRef.current,
+      duration: 0,
+      user_id: userId,
+    };
 
-      // Use navigator.sendBeacon for reliability on unload, or fetch otherwise
-      const url = `${process.env.NEXT_PUBLIC_API_URL || 'https://localhost:5000'}/api/analytics/track`;
-      
+    console.log('[Analytics] Page entry:', currentPath);
+    
+    const tryFetch = async (apiUrl, payload) => {
       try {
-        // Use fetch with keepalive if supported (modern replacement for sendBeacon)
-        fetch(url, {
+        const response = await fetch(`${apiUrl}/api/analytics/track`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
           keepalive: true
-        }).catch(err => console.error('[Analytics] Error:', err));
-      } catch (e) {
-        console.error('[Analytics] Exception:', e);
+        });
+        
+        if (response.ok) {
+          console.log('[Analytics] ✅ Tracked');
+          return true;
+        } else {
+          console.error('[Analytics] ❌ Failed:', response.status);
+          return false;
+        }
+      } catch (err) {
+        console.error('[Analytics] ❌ Error:', err.message);
+        return false;
       }
     };
+    
+    // Track entry
+    tryFetch('https://localhost:5000', entryPayload).then(success => {
+      if (!success) {
+        tryFetch('http://localhost:5000', entryPayload);
+      }
+    });
 
-    // Cleanup function runs when component unmounts or path changes
+    // Track exit with duration
     return () => {
       const duration = Date.now() - startTimeRef.current;
-      sendData(duration);
+      if (duration > 100) {
+        const exitPayload = { ...entryPayload, duration: duration / 1000 };
+        tryFetch('https://localhost:5000', exitPayload).catch(() => {});
+      }
     };
   }, [pathname, searchParams]);
 
