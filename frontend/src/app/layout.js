@@ -1,4 +1,5 @@
 import { Inter } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
 
@@ -53,7 +54,9 @@ export default function RootLayout({ children }) {
         <meta name="theme-color" content="#4C3BCF" />
       </head>
       <body className="font-inter antialiased">
-        <AnalyticsTracker />
+        <Suspense fallback={null}>
+          <AnalyticsTracker />
+        </Suspense>
         {children}
       </body>
     </html>
